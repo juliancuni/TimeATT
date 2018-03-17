@@ -50,6 +50,7 @@
     <Compile Include="helper\CheckConfig.cs" />
     <Compile Include="helper\LidhjetNetApi.cs" />
     <Compile Include="helper\SDKHelper.cs" />
+    <Compile Include="helper\TCPSockets.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>

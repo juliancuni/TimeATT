@@ -9,7 +9,7 @@ namespace TimeATT
         string programPath = Directory.GetCurrentDirectory();
         string configFolder = "\\conf\\";
         string configNetFile = "net_timeatt.cfg";
-        string configApiFile = "api_timeatt.cfg";
+        string configApiFile = "tcp_timeatt.cfg";
 
         public bool GjejNetConfigFile()
         {
@@ -22,7 +22,7 @@ namespace TimeATT
                 return false;
             }
         }
-        public bool GjejApiConfigFile()
+        public bool GjejTCPConfigFile()
         {
             if (File.Exists(programPath + configFolder + configApiFile))
             {
@@ -51,7 +51,7 @@ namespace TimeATT
             System.IO.File.WriteAllLines(programPath + configFolder + configNetFile, rreshtat);
             return true;
         }
-        public bool ShkruajApiConfig(string[] cfgKeys, string[] cfgValues)
+        public bool ShkruajTCPConfig(string[] cfgKeys, string[] cfgValues)
         {
             var orderCfgKeys = cfgKeys.OrderByDescending(s => s.Length);
             var padWidth = orderCfgKeys.First().Length + 5;
@@ -82,7 +82,7 @@ namespace TimeATT
             }
             return vlerat;
         }
-        public string[] LexoApiCfg()
+        public string[] LexoTCPCfg()
         {
             var rreshta = File.ReadAllLines(programPath + configFolder + configApiFile);
             string[] vlerat = { };

@@ -31,6 +31,15 @@
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TimeATT));
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.panel5 = new System.Windows.Forms.Panel();
+            this.panel4 = new System.Windows.Forms.Panel();
+            this.panel3 = new System.Windows.Forms.Panel();
+            this.btnShkeputTCP = new System.Windows.Forms.Button();
+            this.label8 = new System.Windows.Forms.Label();
+            this.tbTCPPort = new System.Windows.Forms.TextBox();
+            this.label9 = new System.Windows.Forms.Label();
+            this.btnLidhuTCP = new System.Windows.Forms.Button();
+            this.tbHost = new System.Windows.Forms.TextBox();
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label14 = new System.Windows.Forms.Label();
@@ -83,26 +92,17 @@
             this.shfaqToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.logToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.configFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.panel3 = new System.Windows.Forms.Panel();
-            this.label9 = new System.Windows.Forms.Label();
-            this.btnLogin = new System.Windows.Forms.Button();
-            this.tbHost = new System.Windows.Forms.TextBox();
-            this.label7 = new System.Windows.Forms.Label();
-            this.tbUser = new System.Windows.Forms.TextBox();
-            this.tbPass = new System.Windows.Forms.TextBox();
-            this.label8 = new System.Windows.Forms.Label();
-            this.panel4 = new System.Windows.Forms.Panel();
-            this.panel5 = new System.Windows.Forms.Panel();
-            this.button1 = new System.Windows.Forms.Button();
+            this.tbTestData = new System.Windows.Forms.TextBox();
+            this.BtnDergoData = new System.Windows.Forms.Button();
             this.tabPage2.SuspendLayout();
+            this.panel4.SuspendLayout();
+            this.panel3.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
             this.netPanel.SuspendLayout();
             this.tabControl.SuspendLayout();
             this.contextMenuStrip1.SuspendLayout();
-            this.panel3.SuspendLayout();
-            this.panel4.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabPage2
@@ -117,6 +117,92 @@
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "API";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // panel5
+            // 
+            this.panel5.BackColor = System.Drawing.Color.DarkGray;
+            this.panel5.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel5.Location = new System.Drawing.Point(6, 75);
+            this.panel5.Name = "panel5";
+            this.panel5.Size = new System.Drawing.Size(416, 110);
+            this.panel5.TabIndex = 3;
+            // 
+            // panel4
+            // 
+            this.panel4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel4.Controls.Add(this.BtnDergoData);
+            this.panel4.Controls.Add(this.tbTestData);
+            this.panel4.Location = new System.Drawing.Point(427, 6);
+            this.panel4.Name = "panel4";
+            this.panel4.Size = new System.Drawing.Size(229, 179);
+            this.panel4.TabIndex = 2;
+            // 
+            // panel3
+            // 
+            this.panel3.BackColor = System.Drawing.Color.Gainsboro;
+            this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel3.Controls.Add(this.btnShkeputTCP);
+            this.panel3.Controls.Add(this.label8);
+            this.panel3.Controls.Add(this.tbTCPPort);
+            this.panel3.Controls.Add(this.label9);
+            this.panel3.Controls.Add(this.btnLidhuTCP);
+            this.panel3.Controls.Add(this.tbHost);
+            this.panel3.Location = new System.Drawing.Point(6, 6);
+            this.panel3.Name = "panel3";
+            this.panel3.Size = new System.Drawing.Size(416, 63);
+            this.panel3.TabIndex = 1;
+            // 
+            // btnShkeputTCP
+            // 
+            this.btnShkeputTCP.Location = new System.Drawing.Point(251, 20);
+            this.btnShkeputTCP.Name = "btnShkeputTCP";
+            this.btnShkeputTCP.Size = new System.Drawing.Size(160, 23);
+            this.btnShkeputTCP.TabIndex = 22;
+            this.btnShkeputTCP.Text = "ShkeputTCP-Server";
+            this.btnShkeputTCP.UseVisualStyleBackColor = true;
+            this.btnShkeputTCP.Click += new System.EventHandler(this.BtnShkeputTCP_Click);
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(134, 24);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(26, 13);
+            this.label8.TabIndex = 21;
+            this.label8.Text = "Port";
+            // 
+            // tbTCPPort
+            // 
+            this.tbTCPPort.Location = new System.Drawing.Point(166, 20);
+            this.tbTCPPort.Name = "tbTCPPort";
+            this.tbTCPPort.Size = new System.Drawing.Size(79, 20);
+            this.tbTCPPort.TabIndex = 2;
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(3, 24);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(29, 13);
+            this.label9.TabIndex = 17;
+            this.label9.Text = "Host";
+            // 
+            // btnLidhuTCP
+            // 
+            this.btnLidhuTCP.Location = new System.Drawing.Point(251, 19);
+            this.btnLidhuTCP.Name = "btnLidhuTCP";
+            this.btnLidhuTCP.Size = new System.Drawing.Size(160, 23);
+            this.btnLidhuTCP.TabIndex = 3;
+            this.btnLidhuTCP.Text = "LidhuMeTCP-Server";
+            this.btnLidhuTCP.UseVisualStyleBackColor = true;
+            this.btnLidhuTCP.Click += new System.EventHandler(this.BtnLidhuTCP_Click);
+            // 
+            // tbHost
+            // 
+            this.tbHost.Location = new System.Drawing.Point(34, 20);
+            this.tbHost.Name = "tbHost";
+            this.tbHost.Size = new System.Drawing.Size(92, 20);
+            this.tbHost.TabIndex = 0;
             // 
             // tabPage1
             // 
@@ -540,7 +626,7 @@
             this.btnLidhu.TabIndex = 3;
             this.btnLidhu.Text = "Lidhu";
             this.btnLidhu.UseVisualStyleBackColor = true;
-            this.btnLidhu.Click += new System.EventHandler(this.BtnLidhu_Click);
+            this.btnLidhu.Click += new System.EventHandler(this.BtnLidhuNET_Click);
             // 
             // tbCommKey
             // 
@@ -568,7 +654,7 @@
             // 
             this.tabControl.Controls.Add(this.tabPage1);
             this.tabControl.Controls.Add(this.tabPage2);
-            this.tabControl.Location = new System.Drawing.Point(12, 11);
+            this.tabControl.Location = new System.Drawing.Point(12, 12);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
             this.tabControl.Size = new System.Drawing.Size(672, 217);
@@ -619,110 +705,22 @@
             this.configFileToolStripMenuItem.Text = "Config File";
             this.configFileToolStripMenuItem.Click += new System.EventHandler(this.configFileToolStripMenuItem_Click);
             // 
-            // panel3
+            // tbTestData
             // 
-            this.panel3.BackColor = System.Drawing.Color.Gainsboro;
-            this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel3.Controls.Add(this.label8);
-            this.panel3.Controls.Add(this.tbPass);
-            this.panel3.Controls.Add(this.tbUser);
-            this.panel3.Controls.Add(this.label7);
-            this.panel3.Controls.Add(this.label9);
-            this.panel3.Controls.Add(this.btnLogin);
-            this.panel3.Controls.Add(this.tbHost);
-            this.panel3.Location = new System.Drawing.Point(6, 6);
-            this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(416, 63);
-            this.panel3.TabIndex = 1;
+            this.tbTestData.Location = new System.Drawing.Point(49, 36);
+            this.tbTestData.Name = "tbTestData";
+            this.tbTestData.Size = new System.Drawing.Size(100, 20);
+            this.tbTestData.TabIndex = 0;
             // 
-            // label9
+            // BtnDergoData
             // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(5, 9);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(29, 13);
-            this.label9.TabIndex = 17;
-            this.label9.Text = "Host";
-            // 
-            // btnLogin
-            // 
-            this.btnLogin.Enabled = false;
-            this.btnLogin.Location = new System.Drawing.Point(347, 29);
-            this.btnLogin.Name = "btnLogin";
-            this.btnLogin.Size = new System.Drawing.Size(61, 23);
-            this.btnLogin.TabIndex = 3;
-            this.btnLogin.Text = "Login";
-            this.btnLogin.UseVisualStyleBackColor = true;
-            this.btnLogin.Click += new System.EventHandler(this.btnLogin_Click);
-            // 
-            // tbHost
-            // 
-            this.tbHost.Location = new System.Drawing.Point(5, 29);
-            this.tbHost.Name = "tbHost";
-            this.tbHost.Size = new System.Drawing.Size(133, 20);
-            this.tbHost.TabIndex = 0;
-            // 
-            // label7
-            // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(143, 9);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(29, 13);
-            this.label7.TabIndex = 18;
-            this.label7.Text = "User";
-            // 
-            // tbUser
-            // 
-            this.tbUser.Location = new System.Drawing.Point(143, 29);
-            this.tbUser.Name = "tbUser";
-            this.tbUser.Size = new System.Drawing.Size(96, 20);
-            this.tbUser.TabIndex = 1;
-            // 
-            // tbPass
-            // 
-            this.tbPass.Location = new System.Drawing.Point(245, 29);
-            this.tbPass.Name = "tbPass";
-            this.tbPass.PasswordChar = '*';
-            this.tbPass.Size = new System.Drawing.Size(96, 20);
-            this.tbPass.TabIndex = 2;
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(245, 9);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(30, 13);
-            this.label8.TabIndex = 21;
-            this.label8.Text = "Pass";
-            // 
-            // panel4
-            // 
-            this.panel4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel4.Controls.Add(this.button1);
-            this.panel4.Location = new System.Drawing.Point(427, 6);
-            this.panel4.Name = "panel4";
-            this.panel4.Size = new System.Drawing.Size(229, 179);
-            this.panel4.TabIndex = 2;
-            // 
-            // panel5
-            // 
-            this.panel5.BackColor = System.Drawing.Color.DarkGray;
-            this.panel5.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel5.Location = new System.Drawing.Point(6, 75);
-            this.panel5.Name = "panel5";
-            this.panel5.Size = new System.Drawing.Size(416, 110);
-            this.panel5.TabIndex = 3;
-            // 
-            // button1
-            // 
-            this.button1.Enabled = false;
-            this.button1.Location = new System.Drawing.Point(115, 9);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(97, 23);
-            this.button1.TabIndex = 0;
-            this.button1.Text = "Test nga server";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.BtnDergoData.Location = new System.Drawing.Point(73, 68);
+            this.BtnDergoData.Name = "BtnDergoData";
+            this.BtnDergoData.Size = new System.Drawing.Size(75, 23);
+            this.BtnDergoData.TabIndex = 1;
+            this.BtnDergoData.Text = "Dergo";
+            this.BtnDergoData.UseVisualStyleBackColor = true;
+            this.BtnDergoData.Click += new System.EventHandler(this.BtnDergoData_Click);
             // 
             // TimeATT
             // 
@@ -741,6 +739,10 @@
             this.Load += new System.EventHandler(this.TimeATT_Load);
             this.Resize += new System.EventHandler(this.TimeATT_Resize);
             this.tabPage2.ResumeLayout(false);
+            this.panel4.ResumeLayout(false);
+            this.panel4.PerformLayout();
+            this.panel3.ResumeLayout(false);
+            this.panel3.PerformLayout();
             this.tabPage1.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
@@ -750,9 +752,6 @@
             this.netPanel.PerformLayout();
             this.tabControl.ResumeLayout(false);
             this.contextMenuStrip1.ResumeLayout(false);
-            this.panel3.ResumeLayout(false);
-            this.panel3.PerformLayout();
-            this.panel4.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -814,15 +813,15 @@
         private System.Windows.Forms.ToolStripMenuItem configFileToolStripMenuItem;
         private System.Windows.Forms.Panel panel3;
         private System.Windows.Forms.Label label8;
-        private System.Windows.Forms.TextBox tbPass;
-        private System.Windows.Forms.TextBox tbUser;
-        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TextBox tbTCPPort;
         private System.Windows.Forms.Label label9;
-        private System.Windows.Forms.Button btnLogin;
+        private System.Windows.Forms.Button btnLidhuTCP;
         private System.Windows.Forms.TextBox tbHost;
         private System.Windows.Forms.Panel panel4;
         private System.Windows.Forms.Panel panel5;
-        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button btnShkeputTCP;
+        private System.Windows.Forms.Button BtnDergoData;
+        private System.Windows.Forms.TextBox tbTestData;
     }
 }
 
