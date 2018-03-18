@@ -81,16 +81,25 @@ namespace TimeATT
             {
                 lbLog.Items.Add(DateTime.Now + ": " + "Error Send: " + ex.Message);
             }
-            try
-            {
-                int bytesRead = nwStream.Read(bytesToRead, 0, client.ReceiveBufferSize);
-                lbLog.Items.Add(DateTime.Now + ": Merr data : " + Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
-            }
-            catch (Exception ex)
-            {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error Recive: " + ex.Message);
-            }
+            //try
+            //{
+            //int bytesRead = nwStream.Read(bytesToRead, 0, client.ReceiveBufferSize);
+            //lbLog.Items.Add(DateTime.Now + ": Merr data : " + Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
+            //}
+            //catch (Exception ex)
+            //{
+            //lbLog.Items.Add(DateTime.Now + ": " + "Error Recive: " + ex.Message);
+            //}
 
+        }
+        public void DegjoPerTeDhena(ListBox lbLog)
+        {
+            NetworkStream nwStream = client.GetStream();
+            byte[] bytesToRead = new byte[client.ReceiveBufferSize];
+
+            int bytesRead = nwStream.Read(bytesToRead, 0, client.ReceiveBufferSize);
+
+            lbLog.Items.Add(System.Text.Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
         }
     }
 }

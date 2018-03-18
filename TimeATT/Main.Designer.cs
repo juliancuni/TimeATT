@@ -33,6 +33,8 @@
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.panel5 = new System.Windows.Forms.Panel();
             this.panel4 = new System.Windows.Forms.Panel();
+            this.BtnDergoData = new System.Windows.Forms.Button();
+            this.tbTestData = new System.Windows.Forms.TextBox();
             this.panel3 = new System.Windows.Forms.Panel();
             this.btnShkeputTCP = new System.Windows.Forms.Button();
             this.label8 = new System.Windows.Forms.Label();
@@ -92,8 +94,6 @@
             this.shfaqToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.logToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.configFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.tbTestData = new System.Windows.Forms.TextBox();
-            this.BtnDergoData = new System.Windows.Forms.Button();
             this.tabPage2.SuspendLayout();
             this.panel4.SuspendLayout();
             this.panel3.SuspendLayout();
@@ -137,6 +137,23 @@
             this.panel4.Size = new System.Drawing.Size(229, 179);
             this.panel4.TabIndex = 2;
             // 
+            // BtnDergoData
+            // 
+            this.BtnDergoData.Location = new System.Drawing.Point(73, 68);
+            this.BtnDergoData.Name = "BtnDergoData";
+            this.BtnDergoData.Size = new System.Drawing.Size(75, 23);
+            this.BtnDergoData.TabIndex = 1;
+            this.BtnDergoData.Text = "Dergo";
+            this.BtnDergoData.UseVisualStyleBackColor = true;
+            this.BtnDergoData.Click += new System.EventHandler(this.BtnDergoData_Click);
+            // 
+            // tbTestData
+            // 
+            this.tbTestData.Location = new System.Drawing.Point(49, 36);
+            this.tbTestData.Name = "tbTestData";
+            this.tbTestData.Size = new System.Drawing.Size(100, 20);
+            this.tbTestData.TabIndex = 0;
+            // 
             // panel3
             // 
             this.panel3.BackColor = System.Drawing.Color.Gainsboro;
@@ -154,7 +171,7 @@
             // 
             // btnShkeputTCP
             // 
-            this.btnShkeputTCP.Location = new System.Drawing.Point(251, 20);
+            this.btnShkeputTCP.Location = new System.Drawing.Point(251, 19);
             this.btnShkeputTCP.Name = "btnShkeputTCP";
             this.btnShkeputTCP.Size = new System.Drawing.Size(160, 23);
             this.btnShkeputTCP.TabIndex = 22;
@@ -704,23 +721,6 @@
             this.configFileToolStripMenuItem.Size = new System.Drawing.Size(131, 22);
             this.configFileToolStripMenuItem.Text = "Config File";
             this.configFileToolStripMenuItem.Click += new System.EventHandler(this.configFileToolStripMenuItem_Click);
-            // 
-            // tbTestData
-            // 
-            this.tbTestData.Location = new System.Drawing.Point(49, 36);
-            this.tbTestData.Name = "tbTestData";
-            this.tbTestData.Size = new System.Drawing.Size(100, 20);
-            this.tbTestData.TabIndex = 0;
-            // 
-            // BtnDergoData
-            // 
-            this.BtnDergoData.Location = new System.Drawing.Point(73, 68);
-            this.BtnDergoData.Name = "BtnDergoData";
-            this.BtnDergoData.Size = new System.Drawing.Size(75, 23);
-            this.BtnDergoData.TabIndex = 1;
-            this.BtnDergoData.Text = "Dergo";
-            this.BtnDergoData.UseVisualStyleBackColor = true;
-            this.BtnDergoData.Click += new System.EventHandler(this.BtnDergoData_Click);
             // 
             // TimeATT
             // 

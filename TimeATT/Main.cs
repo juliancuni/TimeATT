@@ -1,30 +1,27 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using SimpleTCP;
 
 namespace TimeATT
 {
-    public delegate void UpdateTextBoxMethod(string text);
+    //public delegate void UpdateTextBoxMethod(string text);
     public partial class TimeATT : Form
     {
         CheckConfig chkCfg = new CheckConfig();
         SDKHelper skdHelper = new SDKHelper();
         LidhjetNetApi apiHelper = new LidhjetNetApi();
-        TCPSockets sockets = new TCPSockets();
+        SimpleTcpClient client = new SimpleTcpClient();
 
         public TimeATT()
         {
             InitializeComponent();
-            //Kerko per config file
-            btnShkeputTCP.Hide();
+        }
+        #region lidhu NET
+        public void LidhuNET()
+        {
             if (!chkCfg.GjejNetConfigFile())
             {
                 btnLidhu.Text = "Krijo Profil";
@@ -50,7 +47,7 @@ namespace TimeATT
                     lbLog.Items.Add(DateTime.Now + ": " + "Error *CommKey i parregullt!");
                 }
                 else
-                { 
+                {
                     int ret = skdHelper.LidhuMePajisjenTCP(lbLog, tbIp.Text.Trim(), tbPort.Text.Trim(), tbCommKey.Text.Trim());
                     if (skdHelper.GetConnectState())
                     {
@@ -80,21 +77,26 @@ namespace TimeATT
                 }
                 Cursor = Cursors.Default;
             }
-            if(chkCfg.GjejTCPConfigFile())
+        }
+        #endregion
+        #region lidhu TCP
+        public void LidhuTCP()
+        {
+            btnShkeputTCP.Hide();
+            if (chkCfg.GjejTCPConfigFile())
             {
                 string[] vlerat = chkCfg.LexoTCPCfg();
                 tbHost.Text = vlerat[0];
                 tbTCPPort.Text = vlerat[1];
-                int ret = sockets.LidhuMeNodeJs(lbLog, vlerat[0], int.Parse(tbTCPPort.Text));
-                if (ret == 1)
-                {
-                    tbHost.Enabled = false;
-                    tbTCPPort.Enabled = false;
-                    btnLidhuTCP.Hide();
-                    btnShkeputTCP.Show();
-                }
+                tbHost.Enabled = false;
+                tbTCPPort.Enabled = false;
+                btnLidhuTCP.Hide();
+                btnShkeputTCP.Show();
+                client.Connect(vlerat[0], int.Parse(tbTCPPort.Text));
             }
         }
+        #endregion
+        #region Pajisja (info & capacity)
         private void GetDeviceInfo()
         {
             string sFirmver = "";
@@ -141,6 +143,8 @@ namespace TimeATT
             txtUserCpc.Text = userCapacity.ToString();
             txtAttLogCpc.Text = attCapacity.ToString();
         }
+        #endregion
+
         private void BtnLidhuNET_Click(object sender, EventArgs e)
         {
             Cursor = Cursors.WaitCursor;
@@ -237,9 +241,20 @@ namespace TimeATT
         }
         private void TimeATT_Load(object sender, EventArgs e)
         {
+            client.StringEncoder = Encoding.UTF8;
+            client.DataReceived += Client_DataReceived;
+            LidhuTCP();
+            LidhuNET();
             notifyIcon1.Visible = false;
-            //notifyIcon1.BalloonTipText = "Programi është ne Tray!";
-            //notifyIcon1.BalloonTipTitle = "CoreAPP TimeAttendance";
+        }
+        private void Client_DataReceived(object sender, SimpleTCP.Message e)
+        {
+            lbLog.Invoke((MethodInvoker)delegate ()
+            {
+
+                lbLog.Items.Add(e.MessageString);
+                //e.ReplyLine(string.Format("You said: {0}", e.MessageString));
+            });
         }
         private void shfaqToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -264,30 +279,11 @@ namespace TimeATT
             string[] cfgApiValues = { host, port.ToString() };
 
             chkCfg.ShkruajTCPConfig(cfgApiKeys, cfgApiValues);
+            client.Connect(host, port);
+            btnLidhuTCP.Hide();
+            btnShkeputTCP.Show();
             tbHost.Enabled = false;
             tbTCPPort.Enabled = false;
-            //int ret = 0;
-            int ret = sockets.LidhuMeNodeJs(lbLog, host, port);
-            if (ret == 1)
-            {
-                tbHost.Enabled = false;
-                tbTCPPort.Enabled = false;
-                btnLidhuTCP.Hide();
-                btnShkeputTCP.Show();
-            } else if (ret == 0)
-            {
-                tbHost.Enabled = true;
-                tbTCPPort.Enabled = true;
-                btnLidhuTCP.Show();
-                btnShkeputTCP.Hide();
-            }
-            else if (ret == -1)
-            {
-                tbHost.Enabled = true;
-                tbTCPPort.Enabled = true;
-                btnLidhuTCP.Show();
-                btnShkeputTCP.Hide();
-            }
         }
         private void BtnShkeputTCP_Click(object sender, EventArgs e)
         {
@@ -295,34 +291,12 @@ namespace TimeATT
             tbTCPPort.Enabled = true;
             btnLidhuTCP.Show();
             btnShkeputTCP.Hide();
-            sockets.ShkeputuNgaNdodeJs(lbLog);
+            client.Disconnect();
         }
-
         private void BtnDergoData_Click(object sender, EventArgs e)
         {
-            string data = tbTestData.Text.Trim();
-            sockets.DergoTeDhenaNodeJs(lbLog, data);
+            client.WriteLineAndGetReply(tbTestData.Text, TimeSpan.FromSeconds(0));
+            //lbLog.Items.Add("-->" + tbTestData.Text);
         }
-
-        //private void button1_Click(object sender, EventArgs e)
-        //{
-        //    int ret = 0;
-        //LidhjetNetApi lidhuNeApi = new LidhjetNetApi();
-        //lidhuNeApi.endpoint = "http://localhost:3000/api/Perdoruesit/5aabd9d7fa58ef17b4a261bd?access_token=gB6RzexU7LVyqMZUFJymsXxyiGDzJdwOmd6WyJKG1j7BZoGWBmMGnpknn1Z4W8qS";
-        //lbLog.Items.Add(DateTime.Now + ": " + "Po lidhem me API");
-        //string res = lidhuNeApi.GjejApiInfo();
-        //lbLog.Items.Add(res);
-        //string host = "localhost";
-        //int port = 3001;
-        //ret = sockets.LidhuMeNodeJs(lbLog ,host, port);
-        //   if(ret == 1)
-        //  {
-        //}
-        //}
-
-        //private void button2_Click(object sender, EventArgs e)
-        //{
-        //sockets.ShkeputuNgaNdodeJs(lbLog);
-        //}
     }
 }
