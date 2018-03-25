@@ -33,10 +33,10 @@
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.panel5 = new System.Windows.Forms.Panel();
             this.panel4 = new System.Windows.Forms.Panel();
+            this.klienteOnline = new System.Windows.Forms.Label();
             this.BtnDergoData = new System.Windows.Forms.Button();
             this.tbTestData = new System.Windows.Forms.TextBox();
             this.panel3 = new System.Windows.Forms.Panel();
-            this.btnShkeputTCP = new System.Windows.Forms.Button();
             this.label8 = new System.Windows.Forms.Label();
             this.tbTCPPort = new System.Windows.Forms.TextBox();
             this.label9 = new System.Windows.Forms.Label();
@@ -88,12 +88,21 @@
             this.tbPort = new System.Windows.Forms.TextBox();
             this.tbIp = new System.Windows.Forms.TextBox();
             this.tabControl = new System.Windows.Forms.TabControl();
-            this.lbLog = new System.Windows.Forms.ListBox();
-            this.notifyIcon1 = new System.Windows.Forms.NotifyIcon(this.components);
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tabPage3 = new System.Windows.Forms.TabPage();
+            this.lbPMLog = new System.Windows.Forms.ListBox();
+            this.fshiPMLog = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.fshiPMToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.pMLogFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
+            this.trayMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.shfaqToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.logToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.configFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.fshiRTLog = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.fshiRTToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.rTLogFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.lbRTLog = new System.Windows.Forms.ListBox();
+            this.btnDelUser = new System.Windows.Forms.Button();
             this.tabPage2.SuspendLayout();
             this.panel4.SuspendLayout();
             this.panel3.SuspendLayout();
@@ -102,7 +111,10 @@
             this.panel2.SuspendLayout();
             this.netPanel.SuspendLayout();
             this.tabControl.SuspendLayout();
-            this.contextMenuStrip1.SuspendLayout();
+            this.tabPage3.SuspendLayout();
+            this.fshiPMLog.SuspendLayout();
+            this.trayMenu.SuspendLayout();
+            this.fshiRTLog.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabPage2
@@ -115,7 +127,7 @@
             this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage2.Size = new System.Drawing.Size(664, 191);
             this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "API";
+            this.tabPage2.Text = "TCP";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
             // panel5
@@ -130,6 +142,7 @@
             // panel4
             // 
             this.panel4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel4.Controls.Add(this.klienteOnline);
             this.panel4.Controls.Add(this.BtnDergoData);
             this.panel4.Controls.Add(this.tbTestData);
             this.panel4.Location = new System.Drawing.Point(427, 6);
@@ -137,13 +150,21 @@
             this.panel4.Size = new System.Drawing.Size(229, 179);
             this.panel4.TabIndex = 2;
             // 
+            // klienteOnline
+            // 
+            this.klienteOnline.AutoSize = true;
+            this.klienteOnline.Location = new System.Drawing.Point(49, 100);
+            this.klienteOnline.Name = "klienteOnline";
+            this.klienteOnline.Size = new System.Drawing.Size(0, 13);
+            this.klienteOnline.TabIndex = 2;
+            // 
             // BtnDergoData
             // 
             this.BtnDergoData.Location = new System.Drawing.Point(73, 68);
             this.BtnDergoData.Name = "BtnDergoData";
             this.BtnDergoData.Size = new System.Drawing.Size(75, 23);
             this.BtnDergoData.TabIndex = 1;
-            this.BtnDergoData.Text = "Dergo";
+            this.BtnDergoData.Text = "Dergo Test";
             this.BtnDergoData.UseVisualStyleBackColor = true;
             this.BtnDergoData.Click += new System.EventHandler(this.BtnDergoData_Click);
             // 
@@ -158,7 +179,6 @@
             // 
             this.panel3.BackColor = System.Drawing.Color.Gainsboro;
             this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel3.Controls.Add(this.btnShkeputTCP);
             this.panel3.Controls.Add(this.label8);
             this.panel3.Controls.Add(this.tbTCPPort);
             this.panel3.Controls.Add(this.label9);
@@ -168,16 +188,6 @@
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(416, 63);
             this.panel3.TabIndex = 1;
-            // 
-            // btnShkeputTCP
-            // 
-            this.btnShkeputTCP.Location = new System.Drawing.Point(251, 19);
-            this.btnShkeputTCP.Name = "btnShkeputTCP";
-            this.btnShkeputTCP.Size = new System.Drawing.Size(160, 23);
-            this.btnShkeputTCP.TabIndex = 22;
-            this.btnShkeputTCP.Text = "ShkeputTCP-Server";
-            this.btnShkeputTCP.UseVisualStyleBackColor = true;
-            this.btnShkeputTCP.Click += new System.EventHandler(this.BtnShkeputTCP_Click);
             // 
             // label8
             // 
@@ -671,36 +681,70 @@
             // 
             this.tabControl.Controls.Add(this.tabPage1);
             this.tabControl.Controls.Add(this.tabPage2);
+            this.tabControl.Controls.Add(this.tabPage3);
             this.tabControl.Location = new System.Drawing.Point(12, 12);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
             this.tabControl.Size = new System.Drawing.Size(672, 217);
             this.tabControl.TabIndex = 0;
             // 
-            // lbLog
+            // tabPage3
             // 
-            this.lbLog.FormattingEnabled = true;
-            this.lbLog.Location = new System.Drawing.Point(12, 241);
-            this.lbLog.Name = "lbLog";
-            this.lbLog.Size = new System.Drawing.Size(672, 199);
-            this.lbLog.TabIndex = 1;
+            this.tabPage3.Controls.Add(this.btnDelUser);
+            this.tabPage3.Location = new System.Drawing.Point(4, 22);
+            this.tabPage3.Name = "tabPage3";
+            this.tabPage3.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage3.Size = new System.Drawing.Size(664, 191);
+            this.tabPage3.TabIndex = 2;
+            this.tabPage3.Text = "PUNONJËSIT";
+            this.tabPage3.UseVisualStyleBackColor = true;
             // 
-            // notifyIcon1
+            // lbPMLog
             // 
-            this.notifyIcon1.ContextMenuStrip = this.contextMenuStrip1;
-            this.notifyIcon1.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon1.Icon")));
-            this.notifyIcon1.Text = "CoreAPP TimeAttendance";
-            this.notifyIcon1.Visible = true;
-            this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseDoubleClick);
+            this.lbPMLog.ContextMenuStrip = this.fshiPMLog;
+            this.lbPMLog.FormattingEnabled = true;
+            this.lbPMLog.Location = new System.Drawing.Point(12, 241);
+            this.lbPMLog.Name = "lbPMLog";
+            this.lbPMLog.Size = new System.Drawing.Size(672, 69);
+            this.lbPMLog.TabIndex = 1;
             // 
-            // contextMenuStrip1
+            // fshiPMLog
             // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fshiPMLog.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fshiPMToolStripMenuItem,
+            this.pMLogFileToolStripMenuItem});
+            this.fshiPMLog.Name = "fshiPMLog";
+            this.fshiPMLog.Size = new System.Drawing.Size(140, 48);
+            // 
+            // fshiPMToolStripMenuItem
+            // 
+            this.fshiPMToolStripMenuItem.Name = "fshiPMToolStripMenuItem";
+            this.fshiPMToolStripMenuItem.Size = new System.Drawing.Size(139, 22);
+            this.fshiPMToolStripMenuItem.Text = "Fshi PM Log";
+            this.fshiPMToolStripMenuItem.Click += new System.EventHandler(this.fshiPMToolStripMenuItem_Click);
+            // 
+            // pMLogFileToolStripMenuItem
+            // 
+            this.pMLogFileToolStripMenuItem.Name = "pMLogFileToolStripMenuItem";
+            this.pMLogFileToolStripMenuItem.Size = new System.Drawing.Size(139, 22);
+            this.pMLogFileToolStripMenuItem.Text = "PM Log File";
+            // 
+            // notifyIcon
+            // 
+            this.notifyIcon.ContextMenuStrip = this.trayMenu;
+            this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
+            this.notifyIcon.Text = "CoreAPP TimeAttendance";
+            this.notifyIcon.Visible = true;
+            this.notifyIcon.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseDoubleClick);
+            // 
+            // trayMenu
+            // 
+            this.trayMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.shfaqToolStripMenuItem,
             this.logToolStripMenuItem,
             this.configFileToolStripMenuItem});
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(132, 70);
+            this.trayMenu.Name = "contextMenuStrip1";
+            this.trayMenu.Size = new System.Drawing.Size(132, 70);
             // 
             // shfaqToolStripMenuItem
             // 
@@ -722,12 +766,56 @@
             this.configFileToolStripMenuItem.Text = "Config File";
             this.configFileToolStripMenuItem.Click += new System.EventHandler(this.configFileToolStripMenuItem_Click);
             // 
+            // fshiRTLog
+            // 
+            this.fshiRTLog.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.fshiRTToolStripMenuItem,
+            this.rTLogFileToolStripMenuItem});
+            this.fshiRTLog.Name = "fshiLog";
+            this.fshiRTLog.Size = new System.Drawing.Size(136, 48);
+            // 
+            // fshiRTToolStripMenuItem
+            // 
+            this.fshiRTToolStripMenuItem.Name = "fshiRTToolStripMenuItem";
+            this.fshiRTToolStripMenuItem.Size = new System.Drawing.Size(135, 22);
+            this.fshiRTToolStripMenuItem.Text = "Fshi RT Log";
+            this.fshiRTToolStripMenuItem.Click += new System.EventHandler(this.fshiRTToolStripMenuItem_Click);
+            // 
+            // rTLogFileToolStripMenuItem
+            // 
+            this.rTLogFileToolStripMenuItem.Name = "rTLogFileToolStripMenuItem";
+            this.rTLogFileToolStripMenuItem.Size = new System.Drawing.Size(135, 22);
+            this.rTLogFileToolStripMenuItem.Text = "RT Log File";
+            // 
+            // lbRTLog
+            // 
+            this.lbRTLog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
+            this.lbRTLog.ContextMenuStrip = this.fshiRTLog;
+            this.lbRTLog.Font = new System.Drawing.Font("Verdana", 7.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbRTLog.FormattingEnabled = true;
+            this.lbRTLog.ItemHeight = 12;
+            this.lbRTLog.Location = new System.Drawing.Point(12, 326);
+            this.lbRTLog.Name = "lbRTLog";
+            this.lbRTLog.Size = new System.Drawing.Size(672, 268);
+            this.lbRTLog.TabIndex = 83;
+            // 
+            // btnDelUser
+            // 
+            this.btnDelUser.Location = new System.Drawing.Point(7, 7);
+            this.btnDelUser.Name = "btnDelUser";
+            this.btnDelUser.Size = new System.Drawing.Size(75, 23);
+            this.btnDelUser.TabIndex = 0;
+            this.btnDelUser.Text = "Fshi User";
+            this.btnDelUser.UseVisualStyleBackColor = true;
+            this.btnDelUser.Click += new System.EventHandler(this.btnDelUser_Click);
+            // 
             // TimeATT
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(696, 450);
-            this.Controls.Add(this.lbLog);
+            this.ClientSize = new System.Drawing.Size(696, 605);
+            this.Controls.Add(this.lbRTLog);
+            this.Controls.Add(this.lbPMLog);
             this.Controls.Add(this.tabControl);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -736,7 +824,6 @@
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "CoreAPP TimeAttendance";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.TimeATT_FormClosing);
-            this.Load += new System.EventHandler(this.TimeATT_Load);
             this.Resize += new System.EventHandler(this.TimeATT_Resize);
             this.tabPage2.ResumeLayout(false);
             this.panel4.ResumeLayout(false);
@@ -751,7 +838,10 @@
             this.netPanel.ResumeLayout(false);
             this.netPanel.PerformLayout();
             this.tabControl.ResumeLayout(false);
-            this.contextMenuStrip1.ResumeLayout(false);
+            this.tabPage3.ResumeLayout(false);
+            this.fshiPMLog.ResumeLayout(false);
+            this.trayMenu.ResumeLayout(false);
+            this.fshiRTLog.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -762,7 +852,7 @@
         private System.Windows.Forms.TabPage tabPage1;
         private System.Windows.Forms.TabControl tabControl;
         private System.Windows.Forms.Panel netPanel;
-        private System.Windows.Forms.ListBox lbLog;
+        private System.Windows.Forms.ListBox lbPMLog;
         private System.Windows.Forms.Button btnLidhu;
         private System.Windows.Forms.TextBox tbCommKey;
         private System.Windows.Forms.TextBox tbPort;
@@ -806,8 +896,8 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.NotifyIcon notifyIcon1;
-        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
+        private System.Windows.Forms.NotifyIcon notifyIcon;
+        private System.Windows.Forms.ContextMenuStrip trayMenu;
         private System.Windows.Forms.ToolStripMenuItem shfaqToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem logToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem configFileToolStripMenuItem;
@@ -819,9 +909,18 @@
         private System.Windows.Forms.TextBox tbHost;
         private System.Windows.Forms.Panel panel4;
         private System.Windows.Forms.Panel panel5;
-        private System.Windows.Forms.Button btnShkeputTCP;
         private System.Windows.Forms.Button BtnDergoData;
         private System.Windows.Forms.TextBox tbTestData;
+        private System.Windows.Forms.ContextMenuStrip fshiRTLog;
+        private System.Windows.Forms.ToolStripMenuItem fshiRTToolStripMenuItem;
+        private System.Windows.Forms.ListBox lbRTLog;
+        private System.Windows.Forms.ContextMenuStrip fshiPMLog;
+        private System.Windows.Forms.ToolStripMenuItem fshiPMToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem pMLogFileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem rTLogFileToolStripMenuItem;
+        private System.Windows.Forms.TabPage tabPage3;
+        private System.Windows.Forms.Label klienteOnline;
+        private System.Windows.Forms.Button btnDelUser;
     }
 }
 

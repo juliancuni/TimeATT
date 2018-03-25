@@ -1,31 +1,40 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
+using System.Net;
 using System.Windows.Forms;
-using SimpleTCP;
+using Newtonsoft.Json;
 
 namespace TimeATT
 {
-    //public delegate void UpdateTextBoxMethod(string text);
     public partial class TimeATT : Form
     {
-        CheckConfig chkCfg = new CheckConfig();
+        
+
+        ConfigFiles chkCfg = new ConfigFiles();
         SDKHelper skdHelper = new SDKHelper();
+        PajisjaSDK skd = new PajisjaSDK();
         LidhjetNetApi apiHelper = new LidhjetNetApi();
-        SimpleTcpClient client = new SimpleTcpClient();
+        LogHandler logHandler = new LogHandler();
+        TCPKlient tcpKlient;
+
 
         public TimeATT()
         {
             InitializeComponent();
-        }
-        #region lidhu NET
-        public void LidhuNET()
-        {
+
+            #region Main_Load
+            Cursor = Cursors.WaitCursor;
+            skdHelper.sta_SetRTLogListBox(RealTimeEventListBox);
+            Cursor = Cursors.Default;
+            skdHelper.PergjigjePajisja += OnPergjigjePajisja;
+            #endregion
+
+            #region lidhu NET
             if (!chkCfg.GjejNetConfigFile())
             {
                 btnLidhu.Text = "Krijo Profil";
-                lbLog.Items.Add(DateTime.Now + ": " + "Per tu lidhur me pajisjen plotesoni formen me siper");
+                logHandler.PMLog(lbPMLog, "Per tu lidhur me pajisjen plotesoni NET");
             }
             else
             {
@@ -33,22 +42,22 @@ namespace TimeATT
                 tbIp.Text = vlerat[0];
                 tbPort.Text = vlerat[1];
                 tbCommKey.Text = vlerat[2];
-                //vlereso input
                 if (!chkCfg.VleresoIPv4(vlerat[0]))
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Error *Kontrollo IP.");
+                    logHandler.PMLog(lbPMLog, "Error *Kontrollo IP.");
                 }
                 else if (vlerat[1] == "" || Convert.ToInt32(vlerat[1]) <= 0 || Convert.ToInt32(vlerat[1]) > 65535)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Error *Porta e parregullt!");
+                    logHandler.PMLog(lbPMLog, "Error *Porta e parregullt!");
+
                 }
                 else if (vlerat[2] == "" || Convert.ToInt32(vlerat[2]) < 0 || Convert.ToInt32(vlerat[2]) > 999999)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Error *CommKey i parregullt!");
+                    logHandler.PMLog(lbPMLog, "Error *CommKey i parregullt!");
                 }
                 else
                 {
-                    int ret = skdHelper.LidhuMePajisjenTCP(lbLog, tbIp.Text.Trim(), tbPort.Text.Trim(), tbCommKey.Text.Trim());
+                    int ret = skdHelper.sta_ConnectTCP(lbPMLog, tbIp.Text.Trim(), tbPort.Text.Trim(), tbCommKey.Text.Trim());
                     if (skdHelper.GetConnectState())
                     {
                         skdHelper.sta_getBiometricType();
@@ -77,12 +86,9 @@ namespace TimeATT
                 }
                 Cursor = Cursors.Default;
             }
-        }
-        #endregion
-        #region lidhu TCP
-        public void LidhuTCP()
-        {
-            btnShkeputTCP.Hide();
+            #endregion
+
+            #region lidhu TCP
             if (chkCfg.GjejTCPConfigFile())
             {
                 string[] vlerat = chkCfg.LexoTCPCfg();
@@ -90,12 +96,23 @@ namespace TimeATT
                 tbTCPPort.Text = vlerat[1];
                 tbHost.Enabled = false;
                 tbTCPPort.Enabled = false;
-                btnLidhuTCP.Hide();
-                btnShkeputTCP.Show();
-                client.Connect(vlerat[0], int.Parse(tbTCPPort.Text));
+                btnLidhuTCP.Enabled = false;
+                tcpKlient = new TCPKlient(IPAddress.Parse(vlerat[0]), int.Parse(vlerat[1]));
+                tcpKlient.Connect();
+                tcpKlient.DataReceived += new TCPKlient.delDataReceived(Klient_DataReceived);
+                tcpKlient.ConnectionStatusChanged += new TCPKlient.delConnectionStatusChanged(Klient_ConnectionStatusNdyshoi);
             }
+            //Initialize the events
+            #endregion
+
         }
-        #endregion
+
+        public void OnPergjigjePajisja(object source, PergjigjeEventArgs e)
+        {
+            tcpKlient.Send(e.Mesazh);
+            //Debug.Write("TestDelegate" + e.Mesazh);
+        }
+
         #region Pajisja (info & capacity)
         private void GetDeviceInfo()
         {
@@ -109,7 +126,7 @@ namespace TimeATT
             int iFaceAlg = 0;
             string sProducter = "";
 
-            skdHelper.sta_GetDeviceInfo(lbLog, out sFirmver, out sMac, out sPlatform, out sSN, out sProductTime, out sDeviceName, out iFPAlg, out iFaceAlg, out sProducter);
+            skdHelper.sta_GetDeviceInfo(lbPMLog, out sFirmver, out sMac, out sPlatform, out sSN, out sProductTime, out sDeviceName, out iFPAlg, out iFaceAlg, out sProducter);
             txtFirmwareVer.Text = sFirmver;
             txtMac.Text = sMac;
             txtSerialNumber.Text = sSN;
@@ -131,7 +148,7 @@ namespace TimeATT
             userCapacity = 0,
             attCapacity = 0;
 
-            skdHelper.sta_GetCapacityInfo(lbLog, out adminCnt, out userCount, out fpCnt, out pwdCnt, out oplogCnt, out recordCnt, out fpCapacity, out userCapacity, out attCapacity);
+            skdHelper.sta_GetCapacityInfo(lbPMLog, out adminCnt, out userCount, out fpCnt, out pwdCnt, out oplogCnt, out recordCnt, out fpCapacity, out userCapacity, out attCapacity);
 
             txtAdminCnt.Text = adminCnt.ToString();
             txtUserCnt.Text = userCount.ToString();
@@ -145,6 +162,70 @@ namespace TimeATT
         }
         #endregion
 
+        void Klient_ConnectionStatusNdyshoi(TCPKlient sender, TCPKlient.ConnectionStatus status)
+        {
+            //Check if this event was fired on a different thread, if it is then we must invoke it on the UI thread
+            if (InvokeRequired)
+            {
+                Invoke(new TCPKlient.delConnectionStatusChanged(Klient_ConnectionStatusNdyshoi), sender, status);
+                return;
+            }
+
+            lbRTLog.Items.Add(DateTime.Now + ": " + "Statusi TCP: " + status.ToString() + Environment.NewLine);
+        }
+        void Klient_DataReceived(TCPKlient sender, object data)
+        {
+            //Kontrollo nese ka nevoje te invoked ne interface
+            if (InvokeRequired)
+            {
+                try
+                {
+                    Invoke(new TCPKlient.delDataReceived(Klient_DataReceived), sender, data);
+                }
+                catch
+                { }
+                return;
+            }
+            //Interpreto received data nga nodejs Server -> object as a string
+            string strData = data as string;
+            string strKliente = "Kliente";
+            string strKomanda = "komanda";
+            bool permbanKliente = strData.Contains(strKliente);
+            bool permbanKomande = strData.Contains(strKomanda);
+            if (permbanKliente)
+            {
+                //Degjo per Kliente Online
+                klienteOnline.Text = "";
+                klienteOnline.Text += strData + Environment.NewLine;
+            }
+            else if (permbanKomande)
+            {
+                //Degjo per Komanda
+                KomandaJSONInterface jsonNode = JsonConvert.DeserializeObject<KomandaJSONInterface>(strData);
+                string komanda = jsonNode.komanda;
+                string userId = jsonNode.attId;
+                string emerIplote = jsonNode.emerIplote;
+                string gishtId = jsonNode.gishtId;
+                string privilegji = jsonNode.privilegji;
+                string password = jsonNode.password;
+                //lbRTLog.Items.Add(DateTime.Now + ": " + "Komandë nga WEB: " + jsonNode.komanda);
+                if (komanda == "Hap_Skan_Finger")
+                {
+                    skdHelper.sta_OnlineEnroll(lbRTLog, userId, gishtId, "1");
+                }
+                if(komanda == "Reg_Perd")
+                {
+                    skdHelper.sta_SetUserInfo(lbRTLog, userId, emerIplote, privilegji, password);
+                }
+            }
+            //Shkruaj log dhe trego ne interface
+            lbRTLog.Items.Add(DateTime.Now + ": " + strData + Environment.NewLine);
+        }
+        public ListBox RealTimeEventListBox()
+        {
+            ListBox dtg = lbRTLog;
+            return dtg;
+        }
         private void BtnLidhuNET_Click(object sender, EventArgs e)
         {
             Cursor = Cursors.WaitCursor;
@@ -160,20 +241,20 @@ namespace TimeATT
             //vlereso input
             if (!chkCfg.VleresoIPv4(ipAddr))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error *Kontrollo IP.");
+                logHandler.PMLog(lbPMLog, "Error *Kontrollo IP.");
             }
             else if (port == "" || Convert.ToInt32(port) <= 0 || Convert.ToInt32(port) > 65535)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error *Porta e parregullt!");
+                logHandler.PMLog(lbPMLog, "Error *Porta e parregullt!");
             }
             else if(commK == "" || Convert.ToInt32(commK) < 0 || Convert.ToInt32(commK) > 999999)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error *CommKey i parregullt!");
+                logHandler.PMLog(lbPMLog, "Error *CommKey i parregullt!");
             }
             else
             { 
                 chkCfg.ShkruajNetConfig(cfgKeys, cfgValues);
-                int ret = skdHelper.LidhuMePajisjenTCP(lbLog, tbIp.Text.Trim(), tbPort.Text.Trim(), tbCommKey.Text.Trim());
+                int ret = skdHelper.sta_ConnectTCP(lbPMLog, tbIp.Text.Trim(), tbPort.Text.Trim(), tbCommKey.Text.Trim());
 
                 if (skdHelper.GetConnectState())
                 {
@@ -210,14 +291,48 @@ namespace TimeATT
             }
             Cursor = Cursors.Default;
         }
+        private void BtnLidhuTCP_Click(object sender, EventArgs e)
+        {
+            string host = tbHost.Text.Trim();
+            string port = tbTCPPort.Text;
+            string cfkHost = "Host:";
+            string cfgPort = "port:";
+            string[] cfgApiKeys = { cfkHost, cfgPort };
+            string[] cfgApiValues = { host, port.ToString() };
+
+            chkCfg.ShkruajTCPConfig(cfgApiKeys, cfgApiValues);
+            //client.Connect(host, port);
+            tcpKlient = new TCPKlient(IPAddress.Parse(host), int.Parse(port));
+            tcpKlient.Connect();
+            tcpKlient.DataReceived += new TCPKlient.delDataReceived(Klient_DataReceived);
+            tcpKlient.ConnectionStatusChanged += new TCPKlient.delConnectionStatusChanged(Klient_ConnectionStatusNdyshoi);
+            btnLidhuTCP.Enabled = false;
+            tbHost.Enabled = false;
+            tbTCPPort.Enabled = false;
+        }
+        private void BtnDergoData_Click(object sender, EventArgs e)
+        {
+            tcpKlient.Send(tbTestData.Text);
+        }
+        private void BtnShkeputTCP_Click(object sender, EventArgs e)
+        {
+            tbHost.Enabled = true;
+            tbTCPPort.Enabled = true;
+            btnLidhuTCP.Enabled = false;
+            tcpKlient.Disconnect();
+            lbRTLog.Items.Add(DateTime.Now + ": " + "TCP u shkeput nga user");
+            klienteOnline.Text = "Shkeputur";
+        }
+
+        #region Jo te rendesishme
         private void TimeATT_FormClosing(Object sender, FormClosingEventArgs e)
         {
             DialogResult dialog = MessageBox.Show("Doni ta mbyllni programin?", "Exit?", MessageBoxButtons.YesNo);
             if (e.CloseReason == CloseReason.ApplicationExitCall)
-            if (dialog == DialogResult.Yes)
-            {
-                Application.Exit();
-            }
+                if (dialog == DialogResult.Yes)
+                {
+                    Application.Exit();
+                }
             if (dialog == DialogResult.No)
             {
                 e.Cancel = true;
@@ -225,41 +340,32 @@ namespace TimeATT
         }
         private void TimeATT_Resize(object sender, EventArgs e)
         {
-            if(WindowState == FormWindowState.Minimized)
+            if (WindowState == FormWindowState.Minimized)
             {
                 ShowIcon = false;
-                notifyIcon1.Visible = true;
-                notifyIcon1.ShowBalloonTip(1000, "CoreAPP TimeAttendance", "Programi është ne Tray!", ToolTipIcon.Info);
+                notifyIcon.Visible = true;
+                notifyIcon.ShowBalloonTip(1000, "CoreAPP TimeAttendance", "Programi është ne Tray!", ToolTipIcon.Info);
                 ShowInTaskbar = false;
             }
         }
         private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             ShowInTaskbar = true;
-            notifyIcon1.Visible = false;
+            notifyIcon.Visible = false;
             WindowState = FormWindowState.Normal;
         }
-        private void TimeATT_Load(object sender, EventArgs e)
+        private void fshiRTToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            client.StringEncoder = Encoding.UTF8;
-            client.DataReceived += Client_DataReceived;
-            LidhuTCP();
-            LidhuNET();
-            notifyIcon1.Visible = false;
+            this.lbRTLog.Items.Clear();
         }
-        private void Client_DataReceived(object sender, SimpleTCP.Message e)
+        private void fshiPMToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            lbLog.Invoke((MethodInvoker)delegate ()
-            {
-
-                lbLog.Items.Add(e.MessageString);
-                //e.ReplyLine(string.Format("You said: {0}", e.MessageString));
-            });
+            this.lbPMLog.Items.Clear();
         }
         private void shfaqToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ShowInTaskbar = true;
-            notifyIcon1.Visible = false;
+            notifyIcon.Visible = false;
             WindowState = FormWindowState.Normal;
         }
         private void configFileToolStripMenuItem_Click(object sender, EventArgs e)
@@ -269,34 +375,11 @@ namespace TimeATT
             string configFile = "net_timeatt.cfg";
             Process.Start(programPath + configFolder + configFile);
         }
-        private void BtnLidhuTCP_Click(object sender, EventArgs e)
-        {
-            string host = tbHost.Text.Trim();
-            int port = int.Parse(tbTCPPort.Text);
-            string cfkHost = "Host:";
-            string cfgPort = "port:";
-            string[] cfgApiKeys = { cfkHost, cfgPort };
-            string[] cfgApiValues = { host, port.ToString() };
+        #endregion
 
-            chkCfg.ShkruajTCPConfig(cfgApiKeys, cfgApiValues);
-            client.Connect(host, port);
-            btnLidhuTCP.Hide();
-            btnShkeputTCP.Show();
-            tbHost.Enabled = false;
-            tbTCPPort.Enabled = false;
-        }
-        private void BtnShkeputTCP_Click(object sender, EventArgs e)
+        private void btnDelUser_Click(object sender, EventArgs e)
         {
-            tbHost.Enabled = true;
-            tbTCPPort.Enabled = true;
-            btnLidhuTCP.Show();
-            btnShkeputTCP.Hide();
-            client.Disconnect();
-        }
-        private void BtnDergoData_Click(object sender, EventArgs e)
-        {
-            client.WriteLineAndGetReply(tbTestData.Text, TimeSpan.FromSeconds(0));
-            //lbLog.Items.Add("-->" + tbTestData.Text);
+            skd.FshiUser();
         }
     }
 }

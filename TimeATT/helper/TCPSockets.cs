@@ -15,36 +15,36 @@ namespace TimeATT
 
         static TcpClient client;
         
-        public int LidhuMeNodeJs(ListBox lbLog, string host, int port)
+        public int LidhuMeNodeJs(ListBox lbPMLog, string host, int port)
         {
             if(client != null)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Lidhja eshte kryer tashme");
+                lbPMLog.Items.Add(DateTime.Now + ": " + "Lidhja eshte kryer tashme");
                 return 0;
             }
             else
             {
                 try
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Po lidhem me NodeJs TCP server");
+                    lbPMLog.Items.Add(DateTime.Now + ": " + "Po lidhem me NodeJs TCP server");
                     client = new TcpClient();
                     client.Connect(host, port);
-                    lbLog.Items.Add(DateTime.Now + ": " + "Lidhja u krye");
+                    lbPMLog.Items.Add(DateTime.Now + ": " + "Lidhja u krye");
                     return 1;
                 }
                 catch (Exception ex)
                 {
                     client = null;
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Error, Lidhja nuk mund te kryhet" + ex.Message);
+                    lbPMLog.Items.Add(DateTime.Now + ": " + "*Error, Lidhja nuk mund te kryhet" + ex.Message);
                     return -1;
                 }
             }
         }
-        public void ShkeputuNgaNdodeJs(ListBox lbLog)
+        public void ShkeputuNgaNdodeJs(ListBox lbPMLog)
         {
             if (client == null)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Lidhja ose nuk eshte kryer, ose jeni shkeputur me pare");
+                lbPMLog.Items.Add(DateTime.Now + ": " + "Lidhja ose nuk eshte kryer, ose jeni shkeputur me pare");
                 return;
             }
             try
@@ -54,52 +54,52 @@ namespace TimeATT
             } 
             catch (Exception ex)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error ne shkeputje: " + ex);
+                lbPMLog.Items.Add(DateTime.Now + ": " + "Error ne shkeputje: " + ex);
             }
             finally
             {
                 client = null;
             }
-            lbLog.Items.Add(DateTime.Now + ": " + "Lidhja u shkeput me sukses");
+            lbPMLog.Items.Add(DateTime.Now + ": " + "Lidhja u shkeput me sukses");
         }
-        public void DergoTeDhenaNodeJs(ListBox lbLog, string data)
+        public void DergoTeDhenaNodeJs(ListBox lbPMLog, string data)
         {
             if(client == null)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Lidhja ose nuk eshte kryer, ose jeni shkeputur me pare");
+                lbPMLog.Items.Add(DateTime.Now + ": " + "Lidhja ose nuk eshte kryer, ose jeni shkeputur me pare");
                 return;
             }
             NetworkStream nwStream = client.GetStream();
             byte[] bytesToSend = ASCIIEncoding.ASCII.GetBytes(data);
             byte[] bytesToRead = new byte[client.ReceiveBufferSize];
 
-            lbLog.Items.Add(DateTime.Now + ": Dergo data : " + data);
+            lbPMLog.Items.Add(DateTime.Now + ": Dergo data : " + data);
             try
             {
                 nwStream.Write(bytesToSend, 0, bytesToSend.Length);
             } catch (Exception ex)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Error Send: " + ex.Message);
+                lbPMLog.Items.Add(DateTime.Now + ": " + "Error Send: " + ex.Message);
             }
             //try
             //{
             //int bytesRead = nwStream.Read(bytesToRead, 0, client.ReceiveBufferSize);
-            //lbLog.Items.Add(DateTime.Now + ": Merr data : " + Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
+            //lbPMLog.Items.Add(DateTime.Now + ": Merr data : " + Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
             //}
             //catch (Exception ex)
             //{
-            //lbLog.Items.Add(DateTime.Now + ": " + "Error Recive: " + ex.Message);
+            //lbPMLog.Items.Add(DateTime.Now + ": " + "Error Recive: " + ex.Message);
             //}
 
         }
-        public void DegjoPerTeDhena(ListBox lbLog)
+        public void DegjoPerTeDhena(ListBox lbPMLog)
         {
             NetworkStream nwStream = client.GetStream();
             byte[] bytesToRead = new byte[client.ReceiveBufferSize];
 
             int bytesRead = nwStream.Read(bytesToRead, 0, client.ReceiveBufferSize);
 
-            lbLog.Items.Add(System.Text.Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
+            lbPMLog.Items.Add(System.Text.Encoding.ASCII.GetString(bytesToRead, 0, bytesRead));
         }
     }
 }

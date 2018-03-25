@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace TimeATT
 {
-    class CheckConfig
+    class ConfigFiles
     {
         string programPath = Directory.GetCurrentDirectory();
         string configFolder = "\\conf\\";

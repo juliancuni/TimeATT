@@ -33,9 +33,13 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>favicon.ico</ApplicationIcon>
+    <ApplicationIcon>acf7ef943fdeb3cbfed8dd0d8f584731.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.11.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="SimpleTCP, Version=1.0.24.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SimpleTCP.1.0.24\lib\net45\SimpleTCP.dll</HintPath>
     </Reference>
@@ -50,9 +54,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="helper\CheckConfig.cs" />
+    <Compile Include="helper\ConfigFiles.cs" />
+    <Compile Include="helper\KomandaTcp.cs" />
+    <Compile Include="helper\KomunikimJson.cs" />
     <Compile Include="helper\LidhjetNetApi.cs" />
+    <Compile Include="helper\LogHandler.cs" />
+    <Compile Include="helper\PajisjaSDK.cs" />
     <Compile Include="helper\SDKHelper.cs" />
+    <Compile Include="helper\TCPKlient.cs" />
+    <Compile Include="helper\TCPKlient_.cs" />
     <Compile Include="helper\TCPSockets.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
@@ -105,6 +115,7 @@
     <Folder Include="res\pics\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="acf7ef943fdeb3cbfed8dd0d8f584731.ico" />
     <Content Include="favicon.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

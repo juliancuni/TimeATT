@@ -7,11 +7,25 @@ using System.Data;
 using System.IO;
 using System.Drawing;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace TimeATT
 {
+    public class PergjigjeEventArgs: EventArgs
+    {
+        public string Mesazh { get; set; }
+    }
     public class SDKHelper
     {
+        LogHandler logHandler = new LogHandler();
+        protected virtual void OnPergjigjePajisja(string mesazh)
+        {
+            if (PergjigjePajisja != null)
+            {
+                PergjigjePajisja(this, new PergjigjeEventArgs(){ Mesazh = mesazh });
+            }
+        }
         public zkemkeeper.CZKEMClass axCZKEM1 = new zkemkeeper.CZKEMClass();
 
         public List<Employee> employeeList = new List<Employee>();
@@ -164,8 +178,26 @@ namespace TimeATT
             iMachineNumber = Number;
         }
 
-        public int LidhuMePajisjenTCP(ListBox lbLog, string ip, string port, string commKey)
+        public int sta_ConnectTCP(ListBox lblOutputInfo, string ip, string port, string commKey)
         {
+            if (ip == "" || port == "" || commKey == "")
+            {
+                logHandler.PMLog(lblOutputInfo, "*IP, Port ose Commkey Smund te lihen bosh!");
+                return -1;// ip or port is null
+            }
+
+            if (Convert.ToInt32(port) <= 0 || Convert.ToInt32(port) > 65535)
+            {
+                logHandler.PMLog(lblOutputInfo, "*Port illegal!");
+                return -1;
+            }
+
+            if (Convert.ToInt32(commKey) < 0 || Convert.ToInt32(commKey) > 999999)
+            {
+                logHandler.PMLog(lblOutputInfo, "*CommKey illegal!");
+                return -1;
+            }
+
             int idwErrorCode = 0;
 
             axCZKEM1.SetCommPassword(Convert.ToInt32(commKey));
@@ -175,7 +207,7 @@ namespace TimeATT
                 axCZKEM1.Disconnect();
                 sta_UnRegRealTime();
                 SetConnectState(false);
-                lbLog.Items.Add(DateTime.Now + ": " + "Info* Pajisja u shkëput!");
+                logHandler.PMLog(lblOutputInfo, "*Pajisja u shkëput!");
                 //connected = false;
                 return -2; //disconnect
             }
@@ -183,9 +215,8 @@ namespace TimeATT
             if (axCZKEM1.Connect_Net(ip, Convert.ToInt32(port)) == true)
             {
                 SetConnectState(true);
-                sta_RegRealTime(lbLog);
-                lbLog.Items.Add(DateTime.Now + ": " + "Info* Pajisja u lidh!");
-
+                sta_RegRealTime(lblOutputInfo);
+                logHandler.PMLog(lblOutputInfo, "*Pajisja u lidh!");
                 //get Biotype
                 sta_getBiometricType();
 
@@ -194,12 +225,12 @@ namespace TimeATT
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "Error *Nuk lidhem dot me pajisjen,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Error në lidhje ERR: " + idwErrorCode.ToString());
                 return idwErrorCode;
             }
         }
 
-        public int sta_GetDeviceInfo(ListBox lbLog, out string sFirmver, out string sMac, out string sPlatform, out string sSN, out string sProductTime, out string sDeviceName, out int iFPAlg, out int iFaceAlg, out string sProducter)
+        public int sta_GetDeviceInfo(ListBox lblOutputInfo, out string sFirmver, out string sMac, out string sPlatform, out string sSN, out string sProductTime, out string sDeviceName, out int iFPAlg, out int iFaceAlg, out string sProducter)
         {
             int iRet = 0;
 
@@ -216,7 +247,7 @@ namespace TimeATT
 
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -244,7 +275,7 @@ namespace TimeATT
                 axCZKEM1.GetDeviceFirmwareVersion(GetMachineNumber(), ref sFirmver);
             }
              */
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func GetDeviceFirmwareVersion]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func GetDeviceFirmwareVersion]Temporarily unsupported");
 
             axCZKEM1.GetPlatform(GetMachineNumber(), ref sPlatform);
             axCZKEM1.GetSerialNumber(GetMachineNumber(), out sSN);
@@ -252,12 +283,12 @@ namespace TimeATT
 
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
-            lbLog.Items.Add(DateTime.Now + ": " + "Info pajisja OK");
+            logHandler.PMLog(lblOutputInfo, "*Info pajisja OK");
             iRet = 1;
             return iRet;
         }
 
-        public int sta_GetCapacityInfo(ListBox lbLog, out int adminCnt, out int userCount, out int fpCnt, out int pwdCnt, out int oplogCnt, out int recordCnt, out int fpCapacity, out int userCapacity, out int attCapacity)
+        public int sta_GetCapacityInfo(ListBox lbPMLog, out int adminCnt, out int userCount, out int fpCnt, out int pwdCnt, out int oplogCnt, out int recordCnt, out int fpCapacity, out int userCapacity, out int attCapacity)
         {
             int ret = 0;
 
@@ -273,7 +304,7 @@ namespace TimeATT
 
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lbPMLog, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -291,13 +322,14 @@ namespace TimeATT
 
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
-            lbLog.Items.Add(DateTime.Now + ": " + "Kapaciteti i pajisjes OK");
+            logHandler.PMLog(lbPMLog, "*Kapaciteti i pajisjes OK");
 
             ret = 1;
             return ret;
         }
 
-        public void ZgjidhuMePajisjen()
+
+        public void sta_DisConnect()
         {
             if (GetConnectState() == true)
             {
@@ -347,6 +379,9 @@ namespace TimeATT
         private GetRealEventListBoxHandler gRealEventListBoxHandler;
         private ListBox gRealEventListBox;
 
+        public delegate void PergjigjePajisjaEventHandler(object source, PergjigjeEventArgs args);
+        public event PergjigjePajisjaEventHandler PergjigjePajisja;
+
         public void sta_SetRTLogListBox(GetRealEventListBoxHandler gvHandler)
         {
             gRealEventListBoxHandler = gvHandler;
@@ -355,30 +390,28 @@ namespace TimeATT
 
         public void sta_UnRegRealTime()
         {
-            this.axCZKEM1.OnFinger -= new zkemkeeper._IZKEMEvents_OnFingerEventHandler(axCZKEM1_OnFinger);
+            //this.axCZKEM1.OnFinger -= new zkemkeeper._IZKEMEvents_OnFingerEventHandler(axCZKEM1_OnFinger);
             this.axCZKEM1.OnVerify -= new zkemkeeper._IZKEMEvents_OnVerifyEventHandler(axCZKEM1_OnVerify);
             this.axCZKEM1.OnAttTransactionEx -= new zkemkeeper._IZKEMEvents_OnAttTransactionExEventHandler(axCZKEM1_OnAttTransactionEx);
             this.axCZKEM1.OnFingerFeature -= new zkemkeeper._IZKEMEvents_OnFingerFeatureEventHandler(axCZKEM1_OnFingerFeature);
             this.axCZKEM1.OnDeleteTemplate -= new zkemkeeper._IZKEMEvents_OnDeleteTemplateEventHandler(axCZKEM1_OnDeleteTemplate);
             this.axCZKEM1.OnNewUser -= new zkemkeeper._IZKEMEvents_OnNewUserEventHandler(axCZKEM1_OnNewUser);
-            this.axCZKEM1.OnHIDNum -= new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
+            //this.axCZKEM1.OnHIDNum -= new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
             this.axCZKEM1.OnAlarm -= new zkemkeeper._IZKEMEvents_OnAlarmEventHandler(axCZKEM1_OnAlarm);
-            this.axCZKEM1.OnDoor -= new zkemkeeper._IZKEMEvents_OnDoorEventHandler(axCZKEM1_OnDoor);
+            //this.axCZKEM1.OnDoor -= new zkemkeeper._IZKEMEvents_OnDoorEventHandler(axCZKEM1_OnDoor);
             this.axCZKEM1.OnEnrollFingerEx -= new zkemkeeper._IZKEMEvents_OnEnrollFingerExEventHandler(axCZKEM1_OnEnrollFingerEx);
-            this.axCZKEM1.OnWriteCard += new zkemkeeper._IZKEMEvents_OnWriteCardEventHandler(axCZKEM1_OnWriteCard);
-            this.axCZKEM1.OnEmptyCard += new zkemkeeper._IZKEMEvents_OnEmptyCardEventHandler(axCZKEM1_OnEmptyCard);
-            this.axCZKEM1.OnHIDNum += new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
-            this.axCZKEM1.OnAttTransaction -= new zkemkeeper._IZKEMEvents_OnAttTransactionEventHandler(axCZKEM1_OnAttTransaction);
+            //this.axCZKEM1.OnHIDNum += new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
+            //this.axCZKEM1.OnAttTransaction -= new zkemkeeper._IZKEMEvents_OnAttTransactionEventHandler(axCZKEM1_OnAttTransaction);
             this.axCZKEM1.OnKeyPress += new zkemkeeper._IZKEMEvents_OnKeyPressEventHandler(axCZKEM1_OnKeyPress);
             this.axCZKEM1.OnEnrollFinger += new zkemkeeper._IZKEMEvents_OnEnrollFingerEventHandler(axCZKEM1_OnEnrollFinger);
 
         }
 
-        public int sta_RegRealTime(ListBox lbLog)
+        public int sta_RegRealTime(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Info *Lidhuni si fillim!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -387,23 +420,21 @@ namespace TimeATT
             if (axCZKEM1.RegEvent(GetMachineNumber(), 65535))//Here you can register the realtime events that you want to be triggered(the parameters 65535 means registering all)
             {
                 //common interface
-                this.axCZKEM1.OnFinger += new zkemkeeper._IZKEMEvents_OnFingerEventHandler(axCZKEM1_OnFinger);
+                //this.axCZKEM1.OnFinger += new zkemkeeper._IZKEMEvents_OnFingerEventHandler(axCZKEM1_OnFinger);
                 this.axCZKEM1.OnVerify += new zkemkeeper._IZKEMEvents_OnVerifyEventHandler(axCZKEM1_OnVerify);
                 this.axCZKEM1.OnFingerFeature += new zkemkeeper._IZKEMEvents_OnFingerFeatureEventHandler(axCZKEM1_OnFingerFeature);
                 this.axCZKEM1.OnDeleteTemplate += new zkemkeeper._IZKEMEvents_OnDeleteTemplateEventHandler(axCZKEM1_OnDeleteTemplate);
                 this.axCZKEM1.OnNewUser += new zkemkeeper._IZKEMEvents_OnNewUserEventHandler(axCZKEM1_OnNewUser);
-                this.axCZKEM1.OnHIDNum += new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
+                //this.axCZKEM1.OnHIDNum += new zkemkeeper._IZKEMEvents_OnHIDNumEventHandler(axCZKEM1_OnHIDNum);
                 this.axCZKEM1.OnAlarm += new zkemkeeper._IZKEMEvents_OnAlarmEventHandler(axCZKEM1_OnAlarm);
-                this.axCZKEM1.OnDoor += new zkemkeeper._IZKEMEvents_OnDoorEventHandler(axCZKEM1_OnDoor);
+                //this.axCZKEM1.OnDoor += new zkemkeeper._IZKEMEvents_OnDoorEventHandler(axCZKEM1_OnDoor);
 
                 //only for color device
                 this.axCZKEM1.OnAttTransactionEx += new zkemkeeper._IZKEMEvents_OnAttTransactionExEventHandler(axCZKEM1_OnAttTransactionEx);
                 this.axCZKEM1.OnEnrollFingerEx += new zkemkeeper._IZKEMEvents_OnEnrollFingerExEventHandler(axCZKEM1_OnEnrollFingerEx);
 
                 //only for black&white device
-                this.axCZKEM1.OnAttTransaction -= new zkemkeeper._IZKEMEvents_OnAttTransactionEventHandler(axCZKEM1_OnAttTransaction);
-                this.axCZKEM1.OnWriteCard += new zkemkeeper._IZKEMEvents_OnWriteCardEventHandler(axCZKEM1_OnWriteCard);
-                this.axCZKEM1.OnEmptyCard += new zkemkeeper._IZKEMEvents_OnEmptyCardEventHandler(axCZKEM1_OnEmptyCard);
+                //this.axCZKEM1.OnAttTransaction -= new zkemkeeper._IZKEMEvents_OnAttTransactionEventHandler(axCZKEM1_OnAttTransaction);
                 this.axCZKEM1.OnKeyPress += new zkemkeeper._IZKEMEvents_OnKeyPressEventHandler(axCZKEM1_OnKeyPress);
                 this.axCZKEM1.OnEnrollFinger += new zkemkeeper._IZKEMEvents_OnEnrollFingerEventHandler(axCZKEM1_OnEnrollFinger);
 
@@ -417,11 +448,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*RegEvent failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*RegEvent Deshtoi,ERR: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "*Terminali nuk pergjigjet!");
                 }
             }
             return ret;
@@ -430,37 +461,53 @@ namespace TimeATT
         //When you are enrolling your finger,this event will be triggered.
         void axCZKEM1_OnEnrollFingerEx(string EnrollNumber, int FingerIndex, int ActionResult, int TemplateLength)
         {
+            PergjigjeJSONInterface pergjigje = new PergjigjeJSONInterface();
             if (ActionResult == 0)
             {
-                gRealEventListBox.Items.Add("Enroll finger succeed. UserID=" + EnrollNumber.ToString() + "...FingerIndex=" + FingerIndex.ToString());
+                logHandler.RTLog(gRealEventListBox, "*Gishti u skanua dhe regjistrua me sukses. UserID=" + EnrollNumber.ToString() + "...FingerIndex=" + FingerIndex.ToString());
+                //dergo pergjigje ne server
+                pergjigje.status = "sukses";
+                pergjigje.reference = "skan_new_gisht";
+                pergjigje.attId = EnrollNumber.ToString();
+                pergjigje.gishtId = FingerIndex.ToString();
+                string jsonToNode = JsonConvert.SerializeObject(pergjigje);
+                try
+                {
+                    OnPergjigjePajisja(jsonToNode);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Write(ex.Message);
+                }
             }
             else
             {
-                gRealEventListBox.Items.Add("Enroll finger failed. Result=" + ActionResult.ToString());
+                if(ActionResult.ToString() == "4")
+                {
+                    logHandler.RTLog(gRealEventListBox, "*Ky gisht eshte i regjistruar. Provo nje tjeter");
+                    //dergo pergjigje ne server
+                    pergjigje.status = "deshtim";
+                    pergjigje.reference = "skan_new_gisht";
+                    pergjigje.attId = EnrollNumber.ToString();
+                    pergjigje.gishtId = FingerIndex.ToString();
+                    string jsonToNode = JsonConvert.SerializeObject(pergjigje);
+                    try
+                    {
+                        OnPergjigjePajisja(jsonToNode);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Write(ex.Message);
+                    }
+                }
             }
-            throw new NotImplementedException();
-        }
-
-        //Door sensor event
-        void axCZKEM1_OnDoor(int EventType)
-        {
-            gRealEventListBox.Items.Add("Door opened" + "...EventType=" + EventType.ToString());
-
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         //When the dismantling machine or duress alarm occurs, trigger this event.
         void axCZKEM1_OnAlarm(int AlarmType, int EnrollNumber, int Verified)
         {
-            gRealEventListBox.Items.Add("Alarm triggered" + "...AlarmType=" + AlarmType.ToString() + "...EnrollNumber=" + EnrollNumber.ToString() + "...Verified=" + Verified.ToString());
-
-            throw new NotImplementedException();
-        }
-
-        //When you swipe a card to the device, this event will be triggered to show you the card number.
-        void axCZKEM1_OnHIDNum(int CardNumber)
-        {
-            gRealEventListBox.Items.Add("Card event" + "...Cardnumber=" + CardNumber.ToString());
+            logHandler.RTLog(gRealEventListBox, "*Alarm triggered" + "...AlarmType=" + AlarmType.ToString() + "...EnrollNumber=" + EnrollNumber.ToString() + "...Verified=" + Verified.ToString());
 
             throw new NotImplementedException();
         }
@@ -468,44 +515,43 @@ namespace TimeATT
         //When you have enrolled a new user,this event will be triggered.
         void axCZKEM1_OnNewUser(int EnrollNumber)
         {
-            gRealEventListBox.Items.Add("Enroll a　new user" + "...UserID=" + EnrollNumber.ToString());
+            logHandler.RTLog(gRealEventListBox, "*Enroll a　new user" + "...UserID=" + EnrollNumber.ToString());
 
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         //When you have deleted one one fingerprint template,this event will be triggered.
         void axCZKEM1_OnDeleteTemplate(int EnrollNumber, int FingerIndex)
         {
-            gRealEventListBox.Items.Add("Delete a finger template" + "...UserID=" + EnrollNumber.ToString() + "..FingerIndex=" + FingerIndex.ToString());
+            logHandler.RTLog(gRealEventListBox, "*Delete a finger template" + "...UserID=" + EnrollNumber.ToString() + "..FingerIndex=" + FingerIndex.ToString());
 
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         //When you have enrolled your finger,this event will be triggered and return the quality of the fingerprint you have enrolled
         void axCZKEM1_OnFingerFeature(int Score)
         {
-            gRealEventListBox.Items.Add("Press finger score=" + Score.ToString());
+            logHandler.RTLog(gRealEventListBox, "*Press finger score=" + Score.ToString());
 
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         //If your fingerprint(or your card) passes the verification,this event will be triggered,only for color device
         void axCZKEM1_OnAttTransactionEx(string EnrollNumber, int IsInValid, int AttState, int VerifyMethod, int Year, int Month, int Day, int Hour, int Minute, int Second, int WorkCode)
         {
             string time = Year + "-" + Month + "-" + Day + " " + Hour + ":" + Minute + ":" + Second;
-
-            gRealEventListBox.Items.Add("I verifikuar. UserID=" + EnrollNumber + " isInvalid=" + IsInValid.ToString() + " state=" + AttState.ToString() + " verifystyle=" + VerifyMethod.ToString() + " time=" + time);
-
-            //throw new NotImplementedException();
-        }
-
-        //If your fingerprint(or your card) passes the verification,this event will be triggered,only for black%white device
-        private void axCZKEM1_OnAttTransaction(int EnrollNumber, int IsInValid, int AttState, int VerifyMethod, int Year, int Month, int Day, int Hour, int Minute, int Second)
-        {
-            string time = Year + "-" + Month + "-" + Day + " " + Hour + ":" + Minute + ":" + Second;
-            gRealEventListBox.Items.Add("I verifikuar. UserID=" + EnrollNumber.ToString() + " isInvalid=" + IsInValid.ToString() + " state=" + AttState.ToString() + " verifystyle=" + VerifyMethod.ToString() + " time=" + time);
-
-            throw new NotImplementedException();
+            //axCZKEM1.SSR_GetUserInfo(iMachineNumber, EnrollNumber, out name, out pass, out privilegj, out enabled);
+            logHandler.RTLog(gRealEventListBox, "*UserID =" + EnrollNumber + " isInvalid=" + IsInValid.ToString() + " state=" + AttState.ToString() + " verifystyle=" + VerifyMethod.ToString() + " time=" + time);
+            //logHandler.RTLog(gRealEventListBox, "*Test");
+            //logHandler.RTLog(gRealEventListBox, "*Username     =" + name + " Pass=" + pass + " Privilegj=" + privilegj + " Enabled=" + enabled + " time=" + time);
+            PergjigjeJSONInterface pergjigje = new PergjigjeJSONInterface();
+            //dergo pergjigje ne server
+            pergjigje.status = "sukses";
+            pergjigje.reference = "enroll_gisht";
+            pergjigje.attId = EnrollNumber.ToString();
+            pergjigje.checkOut = AttState.ToString();
+            string jsonToNode = JsonConvert.SerializeObject(pergjigje);
+            OnPergjigjePajisja(jsonToNode);
         }
 
         //After you have placed your finger on the sensor(or swipe your card to the device),this event will be triggered.
@@ -514,54 +560,20 @@ namespace TimeATT
         {
             if (UserID != -1)
             {
-                gRealEventListBox.Items.Add("FP u verifikua... UserID=" + UserID.ToString());
+                logHandler.RTLog(gRealEventListBox, "*FP: PunonjesID = " + UserID);
             }
             else
             {
-                gRealEventListBox.Items.Add("Dështim në verifikim... ");
+                logHandler.RTLog(gRealEventListBox, "*Dështim në verifikim FP... ");
             }
 
             //throw new NotImplementedException();
-        }
-
-        //When you place your finger on sensor of the device,this event will be triggered
-        void axCZKEM1_OnFinger()
-        {
-            gRealEventListBox.Items.Add("FP event ");
-
-            //throw new NotImplementedException();
-        }
-
-        //When you have written into the Mifare card ,this event will be triggered.
-        void axCZKEM1_OnWriteCard(int iEnrollNumber, int iActionResult, int iLength)
-        {
-            if (iActionResult == 0)
-            {
-                gRealEventListBox.Items.Add("Write Mifare Card OK" + "...EnrollNumber=" + iEnrollNumber.ToString() + "...TmpLength=" + iLength.ToString());
-            }
-            else
-            {
-                gRealEventListBox.Items.Add("...Write Failed");
-            }
-        }
-
-        //When you have emptyed the Mifare card,this event will be triggered.
-        void axCZKEM1_OnEmptyCard(int iActionResult)
-        {
-            if (iActionResult == 0)
-            {
-                gRealEventListBox.Items.Add("Empty Mifare Card OK...");
-            }
-            else
-            {
-                gRealEventListBox.Items.Add("Empty Failed...");
-            }
         }
 
         //When you press the keypad,this event will be triggered.
         void axCZKEM1_OnKeyPress(int iKey)
         {
-            gRealEventListBox.Items.Add("RTEvent OnKeyPress Has been Triggered, Key: " + iKey.ToString());
+            logHandler.RTLog(gRealEventListBox, "*RTEvent OnKeyPress Has been Triggered, Key: " + iKey.ToString());
         }
 
         //When you are enrolling your finger,this event will be triggered.
@@ -569,13 +581,12 @@ namespace TimeATT
         {
             if (ActionResult == 0)
             {
-                gRealEventListBox.Items.Add("Enroll finger succeed. UserID=" + EnrollNumber + "...FingerIndex=" + FingerIndex.ToString());
+                logHandler.RTLog(gRealEventListBox, "*Gishti u skanua dhe regjistrua me sukses. UserID=" + EnrollNumber + "...FingerIndex=" + FingerIndex.ToString());
             }
             else
             {
-                gRealEventListBox.Items.Add("Enroll finger failed. Result=" + ActionResult.ToString());
+                logHandler.RTLog(gRealEventListBox, "*Skanimi deshtoi. Err_Code=" + ActionResult.ToString());
             }
-            throw new NotImplementedException();
         }
 
         #endregion
@@ -584,17 +595,17 @@ namespace TimeATT
 
         #region UserInfo
 
-        public int sta_DeleteEnrollData(ListBox lbLog, ComboBox cbUseID, ComboBox cbBackupDE)
+        public int sta_DeleteEnrollData(ListBox lblOutputInfo, ComboBox cbUseID, ComboBox cbBackupDE)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUseID.Text.Trim() == "" || cbBackupDE.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -605,31 +616,31 @@ namespace TimeATT
             if (axCZKEM1.SSR_DeleteEnrollData(iMachineNumber, sUserID, iBackupNumber))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "SSR_DeleteEnrollData,UserID=" + sUserID + " BackupNumber=" + iBackupNumber.ToString());
+                logHandler.PMLog(lblOutputInfo, "SSR_DeleteEnrollData,UserID=" + sUserID + " BackupNumber=" + iBackupNumber.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode == 0 && iBackupNumber == 11)
-                    lbLog.Items.Add(DateTime.Now + ": " + "SSR_DeleteEnrollData,UserID=" + sUserID + " BackupNumber=" + iBackupNumber.ToString());
+                    logHandler.PMLog(lblOutputInfo, "SSR_DeleteEnrollData,UserID=" + sUserID + " BackupNumber=" + iBackupNumber.ToString());
                 else
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_DelUserTmp(ListBox lbLog, ComboBox cbUseID, ComboBox cbFingerIndex)
+        public int sta_DelUserTmp(ListBox lblOutputInfo, ComboBox cbUseID, ComboBox cbFingerIndex)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUseID.Text.Trim() == "" || cbFingerIndex.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -640,28 +651,28 @@ namespace TimeATT
             if (axCZKEM1.SSR_DelUserTmpExt(iMachineNumber, sUserID, iFingerIndex))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "SSR_DelUserTmpExt,UserID:" + sUserID + " FingerIndex:" + iFingerIndex.ToString());
+                logHandler.PMLog(lblOutputInfo, "SSR_DelUserTmpExt,UserID:" + sUserID + " FingerIndex:" + iFingerIndex.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_OnlineEnroll(ListBox lbLog, TextBox txtUserID, ComboBox cbFingerIndex, ComboBox cbFlag)
+        public int sta_OnlineEnroll(ListBox lblOutputInfo, string txtUserID, string cbFingerIndex, string cbFlag)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
-            if (txtUserID.Text.Trim() == "" || cbFingerIndex.Text.Trim() == "" || cbFlag.Text.Trim() == "")
+            if (txtUserID == "" || cbFingerIndex == "" || cbFlag == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -682,76 +693,90 @@ namespace TimeATT
             axCZKEM1.GetDeviceInfo(iMachineNumber, 78, ref iT9FunOn);
              */
 
-            if (txtUserID.Text.Length > iPIN2Width)
+            if (txtUserID.Length > iPIN2Width)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! The max length is " + iPIN2Width.ToString());
+                logHandler.PMLog(lblOutputInfo, "*User ID error! The max length is " + iPIN2Width.ToString());
                 return -1022;
             }
 
             if (iIsABCPinEnable == 0 || iT9FunOn == 0)
             {
-                if (txtUserID.Text.Substring(0, 1) == "0")
+                if (txtUserID.Substring(0, 1) == "0")
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! The first letter can not be as 0");
+                    logHandler.PMLog(lblOutputInfo, "*User ID error! The first letter can not be as 0");
                     return -1022;
                 }
 
-                foreach (char tempchar in txtUserID.Text.ToCharArray())
+                foreach (char tempchar in txtUserID.ToCharArray())
                 {
                     if (!(char.IsDigit(tempchar)))
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! User ID only support digital");
+                        logHandler.PMLog(lblOutputInfo, "*User ID error! User ID only support digital");
                         return -1022;
                     }
                 }
             }
 
             int idwErrorCode = 0;
-            string sUserID = txtUserID.Text.Trim();
-            int iFingerIndex = Convert.ToInt32(cbFingerIndex.Text.Trim());
-            int iFlag = Convert.ToInt32(cbFlag.Text.Trim());
+            string sUserID = txtUserID;
+            int iFingerIndex = Convert.ToInt32(cbFingerIndex);
+            int iFlag = Convert.ToInt32(cbFlag);
 
             axCZKEM1.CancelOperation();
             //If the specified index of user's templates has existed ,delete it first
             axCZKEM1.SSR_DelUserTmpExt(iMachineNumber, sUserID, iFingerIndex);
             if (axCZKEM1.StartEnrollEx(sUserID, iFingerIndex, iFlag))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Start to Enroll a new User,UserID=" + sUserID + " FingerID=" + iFingerIndex.ToString() + " Flag=" + iFlag.ToString());
+                logHandler.PMLog(lblOutputInfo, "Skano gisht te ri per: " + sUserID + " GishtID=" + iFingerIndex.ToString() + " Flag=" + iFlag.ToString());
                 if (axCZKEM1.StartIdentify())
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Enroll a new User,UserID" + sUserID);
+                    logHandler.PMLog(lblOutputInfo, "UserID" + sUserID);
                 }
                 ;//After enrolling templates,you should let the device into the 1:N verification condition
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_SetUserInfo(ListBox lbLog, TextBox txtUserID, TextBox txtName, ComboBox cbPrivilege, TextBox txtCardnumber, TextBox txtPassword)
+        public int sta_SetUserInfo(ListBox lblOutputInfo, string txtUserID, string txtName, string cbPrivilege, string txtPassword)
         {
+            PergjigjeJSONInterface pergjigje = new PergjigjeJSONInterface();
+            //dergo pergjigje ne server
+            pergjigje.status = "sukses";
+            pergjigje.reference = "reg_new_perd";
+            pergjigje.attId = txtUserID;
+            string jsonToNode = JsonConvert.SerializeObject(pergjigje);
+            try
+            {
+                OnPergjigjePajisja(jsonToNode);
+            }
+            catch (Exception ex)
+            {
+                Debug.Write(ex.Message);
+            }
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
-            if (txtUserID.Text.Trim() == "" || cbPrivilege.Text.Trim() == "")
+            if (txtUserID == "" || cbPrivilege == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
-            int iPrivilege = cbPrivilege.SelectedIndex;
+            int iPrivilege = int.Parse(cbPrivilege);
 
-            // never used bool bFlag = false;
+            bool bFlag = false;
             if (iPrivilege == 5)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*User Defined Role is Error! Please Register again!");
+                logHandler.PMLog(lblOutputInfo, "*User Defined Role is Error! Please Register again!");
                 return -1023;
             }
 
@@ -762,12 +787,12 @@ namespace TimeATT
 
                 if (bFlag == false)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*User Defined Role is unable!");
+                    logHandler.PMLog(lblOutputInfo, "*User Defined Role is unable!");
                     return -1023;
                 }
             }
              */
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func IsUserDefRoleEnable]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func IsUserDefRoleEnable]Temporarily unsupported");
 
             int iPIN2Width = 0;
             int iIsABCPinEnable = 0;
@@ -785,35 +810,34 @@ namespace TimeATT
             axCZKEM1.GetDeviceInfo(iMachineNumber, 78, ref iT9FunOn);
             */
 
-            if (txtUserID.Text.Length > iPIN2Width)
+            if (txtUserID.Length > iPIN2Width)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! The max length is " + iPIN2Width.ToString());
+                logHandler.PMLog(lblOutputInfo, "*User ID error! The max length is " + iPIN2Width.ToString());
                 return -1022;
             }
 
             if (iIsABCPinEnable == 0 || iT9FunOn == 0)
             {
-                if (txtUserID.Text.Substring(0, 1) == "0")
+                if (txtUserID.Substring(0, 1) == "0")
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! The first letter can not be as 0");
+                    logHandler.PMLog(lblOutputInfo, "*User ID error! The first letter can not be as 0");
                     return -1022;
                 }
 
-                foreach (char tempchar in txtUserID.Text.ToCharArray())
+                foreach (char tempchar in txtUserID.ToCharArray())
                 {
                     if (!(char.IsDigit(tempchar)))
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! User ID only support digital");
+                        logHandler.PMLog(lblOutputInfo, "*User ID error! User ID only support digital");
                         return -1022;
                     }
                 }
             }
 
             int idwErrorCode = 0;
-            string sdwEnrollNumber = txtUserID.Text.Trim();
-            string sName = txtName.Text.Trim();
-            string sCardnumber = txtCardnumber.Text.Trim();
-            string sPassword = txtPassword.Text.Trim();
+            string sdwEnrollNumber = txtUserID;
+            string sName = txtName.Trim();
+            string sPassword = txtPassword;
 
             bool bEnabled = true;
             /*if (iPrivilege == 4)
@@ -827,15 +851,15 @@ namespace TimeATT
             }*/
 
             axCZKEM1.EnableDevice(iMachineNumber, false);
-            axCZKEM1.SetStrCardNumber(sCardnumber);//Before you using function SetUserInfo,set the card number to make sure you can upload it to the device
+            //axCZKEM1.SetStrCardNumber(sCardnumber);//Before you using function SetUserInfo,set the card number to make sure you can upload it to the device
             if (axCZKEM1.SSR_SetUserInfo(iMachineNumber, sdwEnrollNumber, sName, sPassword, iPrivilege, bEnabled))//upload the user's information(card number included)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Set user information successfully");
+                logHandler.PMLog(lblOutputInfo, "Set user information successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
             axCZKEM1.EnableDevice(iMachineNumber, true);
@@ -843,17 +867,17 @@ namespace TimeATT
             return 1;
         }
 
-        public int sta_GetUserInfo(ListBox lbLog, TextBox txtUserID, TextBox txtName, ComboBox cbPrivilege, TextBox txtCardnumber, TextBox txtPassword)
+        public int sta_GetUserInfo(ListBox lblOutputInfo, TextBox txtUserID, TextBox txtName, ComboBox cbPrivilege, TextBox txtCardnumber, TextBox txtPassword)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtUserID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user id first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user id first!");
                 return -1023;
             }
 
@@ -864,7 +888,7 @@ namespace TimeATT
 
             if (txtUserID.Text.Length > iPIN2Width)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*User ID error! The max length is " + iPIN2Width.ToString());
+                logHandler.PMLog(lblOutputInfo, "*User ID error! The max length is " + iPIN2Width.ToString());
                 return -1022;
             }
 
@@ -887,7 +911,7 @@ namespace TimeATT
                 txtPassword.Text = strPassword;
                 txtCardnumber.Text = strCardno;
                 cbPrivilege.SelectedIndex = iPrivilege;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user information successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user information successfully");
             }
             else
             {
@@ -897,20 +921,20 @@ namespace TimeATT
                 txtPassword.Text = " ";
                 txtCardnumber.Text = " ";
                 cbPrivilege.SelectedIndex = 5;
-                lbLog.Items.Add(DateTime.Now + ": " + "The User is not exist");
+                logHandler.PMLog(lblOutputInfo, "The User is not exist");
                 //end by Leonard
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_GetHIDEventCardNum(ListBox lbLog)
+        public int sta_GetHIDEventCardNum(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -919,28 +943,28 @@ namespace TimeATT
 
             if (axCZKEM1.GetHIDEventCardNumAsStr(out strHIDEventCardNum))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "GetHIDEventCardNumAsStr! HIDCardNum=" + strHIDEventCardNum);
+                logHandler.PMLog(lblOutputInfo, "GetHIDEventCardNumAsStr! HIDCardNum=" + strHIDEventCardNum);
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_SetUserValidDate(ListBox lbLog, ComboBox cbExpires, TextBox txtID2, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtCount)
+        public int sta_SetUserValidDate(ListBox lblOutputInfo, ComboBox cbExpires, TextBox txtID2, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtCount)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtID2.Text.Trim() == "" || cbExpires.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user ID or Exprires first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user ID or Exprires first!");
                 return -1023;
             }
 
@@ -965,7 +989,7 @@ namespace TimeATT
                 case 1:
                     if (dtStartDate.Text.Trim() == "" || dtEndDate.Text.Trim() == "")
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Please input StartDate or EndDate first!");
+                        logHandler.PMLog(lblOutputInfo, "*Please input StartDate or EndDate first!");
                         return -1022;
                     }
 
@@ -976,13 +1000,13 @@ namespace TimeATT
                 case 2:
                     if (txtCount.Text.Trim() == "")
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                        logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                         return -1022;
                     }
 
                     if (txtCount.Text.Trim() == "" || iCount < 0 || iCount > 10000)
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*The Count is error!");
+                        logHandler.PMLog(lblOutputInfo, "*The Count is error!");
                         return -1022;
                     }
 
@@ -996,13 +1020,13 @@ namespace TimeATT
                 case 3:
                     if (dtStartDate.Text.Trim() == "" || dtEndDate.Text.Trim() == "" || txtCount.Text.Trim() == "")
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                        logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                         return -1022;
                     }
 
                     if (iCount < 0 || iCount > 10000)
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*The Count is error!");
+                        logHandler.PMLog(lblOutputInfo, "*The Count is error!");
                         return -1022;
                     }
 
@@ -1011,7 +1035,7 @@ namespace TimeATT
                     break;
 
                 default:
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Expires Error,please input again!");
+                    logHandler.PMLog(lblOutputInfo, "*Expires Error,please input again!");
                     return -1022;
 
             }
@@ -1020,32 +1044,32 @@ namespace TimeATT
             if (axCZKEM1.SetUserValidDate(iMachineNumber, idwUserID, expires, validcount, sdwStartDate, sdwEndDate))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set the ValidDate!");
+                logHandler.PMLog(lblOutputInfo, "Successfully set the ValidDate!");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 //txtCount.Text = " ";
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func SetUserValidDate]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func SetUserValidDate]Temporarily unsupported");
 
             return 1;
         }
 
-        public int sta_GetUserValidDate(ListBox lbLog, ComboBox cbExpires, TextBox txtID2, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtCount)
+        public int sta_GetUserValidDate(ListBox lblOutputInfo, ComboBox cbExpires, TextBox txtID2, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtCount)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtID2.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user ID first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user ID first!");
                 return -1023;
             }
 
@@ -1068,7 +1092,7 @@ namespace TimeATT
                 dtStartDate.Text = sStartDate;
                 dtEndDate.Text = sEndDate;
                 txtCount.Text = validcount.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user valid date successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user valid date successfully");
             }
             else
             {
@@ -1080,7 +1104,7 @@ namespace TimeATT
                     dtStartDate.Text = DateTime.Now.ToShortDateString().ToString();
                     dtEndDate.Text = DateTime.Now.ToShortDateString().ToString();
                     txtCount.Text = "0";
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,This User Don't Set ValideDate Or LimitCounts.");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,This User Don't Set ValideDate Or LimitCounts.");
                 }
                 else if (idwErrorCode == -4993)     //User is not exist
                 {
@@ -1088,32 +1112,32 @@ namespace TimeATT
                     dtStartDate.Text = DateTime.Now.ToShortDateString().ToString();
                     dtEndDate.Text = DateTime.Now.ToShortDateString().ToString();
                     txtCount.Text = "0";
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,This User is not exist.");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,This User is not exist.");
                 }
                 else
                 {
                     txtCount.Text = " ";
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 //end add
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func GetUserValidDate]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func GetUserValidDate]Temporarily unsupported");
 
             return 1;
         }
 
-        public int sta_GetUserVerifyStyle(ListBox lbLog, ComboBox cbUserID7, ComboBox cbVerifyStyle)
+        public int sta_GetUserVerifyStyle(ListBox lblOutputInfo, ComboBox cbUserID7, ComboBox cbVerifyStyle)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUserID7.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user ID first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user ID first!");
                 return -1023;
             }
 
@@ -1142,12 +1166,12 @@ namespace TimeATT
                     case 141: cbVerifyStyle.SelectedIndex = 14; break;
                     case 142: cbVerifyStyle.SelectedIndex = 15; break;
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user verify style successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user verify style successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             /*
@@ -1172,30 +1196,30 @@ namespace TimeATT
                     case 141: cbVerifyStyle.SelectedIndex = 14; break;
                     case 142: cbVerifyStyle.SelectedIndex = 15; break;
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user verify style successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user verify style successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             */
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func GetUserVerifyStyle]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func GetUserVerifyStyle]Temporarily unsupported");
             return 1;
         }
 
-        public int sta_SetUserVerifyStyle(ListBox lbLog, ComboBox cbUserID7, ComboBox cbVerifyStyle)
+        public int sta_SetUserVerifyStyle(ListBox lblOutputInfo, ComboBox cbUserID7, ComboBox cbVerifyStyle)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUserID7.Text.Trim() == "" || cbVerifyStyle.Text == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input the UserID or VerifyStyle!");
+                logHandler.PMLog(lblOutputInfo, "*Please input the UserID or VerifyStyle!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -1226,25 +1250,25 @@ namespace TimeATT
 
             if (axCZKEM1.SetUserInfoEx(GetMachineNumber(), Convert.ToInt32(sUserID), iVerifyStyle, ref bReserved))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Set verify style successfully!");
+                logHandler.PMLog(lblOutputInfo, "Set verify style successfully!");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             /*
             if (axCZKEM1.SetUserVerifyStyle(1, sUserID, iVerifyStyle, ref bReserved))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Set verify style successfully!");
+                logHandler.PMLog(lblOutputInfo, "Set verify style successfully!");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             */
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func SetUserVerifyStyle]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func SetUserVerifyStyle]Temporarily unsupported");
 
 
             return 1;
@@ -1253,11 +1277,11 @@ namespace TimeATT
         #endregion
 
         #region UesrFP
-        public int sta_GetAllUserFPInfo(ListBox lbLog, ProgressBar prgSta, ListView lvUserInfo)
+        public int sta_GetAllUserFPInfo(ListBox lblOutputInfo, ProgressBar prgSta, ListView lvUserInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -1357,22 +1381,22 @@ namespace TimeATT
                 prgSta.Value = num % 100;
             }
             prgSta.Value = 100;
-            lbLog.Items.Add(DateTime.Now + ": " + "Download user count : " + num.ToString() + " ,  fingerprint count : " + iFpCount.ToString());
+            logHandler.PMLog(lblOutputInfo, "Download user count : " + num.ToString() + " ,  fingerprint count : " + iFpCount.ToString());
             axCZKEM1.EnableDevice(iMachineNumber, true);
             return 1;
         }
 
-        public int sta_SetAllUserFPInfo(ListBox lbLog, ProgressBar prgSta, ListView lvUserInfo)
+        public int sta_SetAllUserFPInfo(ListBox lblOutputInfo, ProgressBar prgSta, ListView lvUserInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (lvUserInfo.Items.Count == 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*There is no data can upload!");
+                logHandler.PMLog(lblOutputInfo, "*There is no data can upload!");
                 return -1023;
             }
 
@@ -1431,7 +1455,7 @@ namespace TimeATT
                 else
                 {
                     axCZKEM1.GetLastError(ref idwErrorCode);
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Upload user " + sEnrollNumber + " error,ErrorCode=!" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Upload user " + sEnrollNumber + " error,ErrorCode=!" + idwErrorCode.ToString());
                     //axCZKEM1.EnableDevice(iMachineNumber, true);
                     //return -1022;
                 }
@@ -1441,22 +1465,22 @@ namespace TimeATT
 
             axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
             axCZKEM1.EnableDevice(iMachineNumber, true);
-            lbLog.Items.Add(DateTime.Now + ": " + "Upload user successfully");
+            logHandler.PMLog(lblOutputInfo, "Upload user successfully");
 
             return 1;
         }
 
-        public int sta_batch_SetAllUserFPInfo(ListBox lbLog, ProgressBar prgSta, ListView lvUserInfo)
+        public int sta_batch_SetAllUserFPInfo(ListBox lblOutputInfo, ProgressBar prgSta, ListView lvUserInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (lvUserInfo.Items.Count == 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*There is no data can upload!");
+                logHandler.PMLog(lblOutputInfo, "*There is no data can upload!");
                 return -1023;
             }
 
@@ -1517,7 +1541,7 @@ namespace TimeATT
                     else
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Upload user " + sEnrollNumber + " error,ErrorCode=!" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Upload user " + sEnrollNumber + " error,ErrorCode=!" + idwErrorCode.ToString());
                         //axCZKEM1.EnableDevice(iMachineNumber, true);
                         //return -1022;
                     }
@@ -1527,18 +1551,18 @@ namespace TimeATT
             axCZKEM1.BatchUpdate(iMachineNumber);//upload all the information in the memory
             axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
             axCZKEM1.EnableDevice(iMachineNumber, true);
-            lbLog.Items.Add(DateTime.Now + ": " + "Upload user successfully in batch");
+            logHandler.PMLog(lblOutputInfo, "Upload user successfully in batch");
             return 1;
         }
 
         #endregion
 
         #region UserFace
-        public int sta_GetAllUserFaceInfo(ListBox lbLog, ProgressBar prgSta, ListView lvUserInfo)
+        public int sta_GetAllUserFaceInfo(ListBox lblOutputInfo, ProgressBar prgSta, ListView lvUserInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -1584,23 +1608,23 @@ namespace TimeATT
                 prgSta.Value = num % 100;
             }
             prgSta.Value = 100;
-            lbLog.Items.Add(DateTime.Now + ": " + "Download user  face count : " + num.ToString());
+            logHandler.PMLog(lblOutputInfo, "Download user  face count : " + num.ToString());
             axCZKEM1.EnableDevice(iMachineNumber, true);
             return 1;
         }
 
         //Upload user's face templates to device
-        public int sta_SetAllUserFaceInfo(ListBox lbLog, ProgressBar prgSta, ListView lvUserInfo)
+        public int sta_SetAllUserFaceInfo(ListBox lblOutputInfo, ProgressBar prgSta, ListView lvUserInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (lvUserInfo.Items.Count == 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*There is no data can upload!");
+                logHandler.PMLog(lblOutputInfo, "*There is no data can upload!");
                 return -1023;
             }
 
@@ -1645,7 +1669,7 @@ namespace TimeATT
                 else
                 {
                     axCZKEM1.GetLastError(ref idwErrorCode);
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=!" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=!" + idwErrorCode.ToString());
                     axCZKEM1.EnableDevice(iMachineNumber, true);
                     return -1022;
                 }
@@ -1654,25 +1678,25 @@ namespace TimeATT
 
             axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
             axCZKEM1.EnableDevice(iMachineNumber, true);
-            lbLog.Items.Add(DateTime.Now + ": " + "Upload face successfully");
+            logHandler.PMLog(lblOutputInfo, "Upload face successfully");
             return 1;
         }
         #endregion
 
         #region UserPhoto
 
-        public int sta_DownloadAllUserPhoto(ListBox lbLog, TextBox txtAllPhotoPath)
+        public int sta_DownloadAllUserPhoto(ListBox lblOutputInfo, TextBox txtAllPhotoPath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
 
             if (txtAllPhotoPath.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Select photo path first.");
+                logHandler.PMLog(lblOutputInfo, "*Select photo path first.");
                 return -1023;
             }
 
@@ -1684,7 +1708,7 @@ namespace TimeATT
             if (axCZKEM1.GetAllUserPhoto(GetMachineNumber(), photoPath))
             {
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get All User Photo From the Device!");
+                logHandler.PMLog(lblOutputInfo, "Get All User Photo From the Device!");
             }
             else
             {
@@ -1693,32 +1717,32 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Download all user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Download all user photo failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func GetAllUserPhoto]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func GetAllUserPhoto]Temporarily unsupported");
 
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_UploadAllUserPhoto(ListBox lbLog, TextBox txtAllPhotoPath)
+        public int sta_UploadAllUserPhoto(ListBox lblOutputInfo, TextBox txtAllPhotoPath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtAllPhotoPath.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Select photo path first.");
+                logHandler.PMLog(lblOutputInfo, "*Select photo path first.");
                 return -1023;
             }
 
@@ -1732,14 +1756,14 @@ namespace TimeATT
 
             //if (num <= 0)
             //{
-            //    lbLog.Items.Add(DateTime.Now + ": " + "*There is no picture can update.");
+            //    logHandler.PMLog(lblOutputInfo, "*There is no picture can update.");
             //    return -1023;
             //}
 
             DirectoryInfo Directory = new DirectoryInfo(photoPath);
             if (Directory.GetFiles().Length + Directory.GetDirectories().Length == 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*There is no picture can update.");
+                logHandler.PMLog(lblOutputInfo, "*There is no picture can update.");
                 return -1023;
             }
 
@@ -1755,7 +1779,7 @@ namespace TimeATT
                     {
                         axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
                         ret = 1;
-                        lbLog.Items.Add(DateTime.Now + ": " + "Upload user photo to device successfully, file name : " + NextFile.Name);
+                        logHandler.PMLog(lblOutputInfo, "Upload user photo to device successfully, file name : " + NextFile.Name);
                     }
                     else
                     {
@@ -1764,11 +1788,11 @@ namespace TimeATT
 
                         if (idwErrorCode != 0)
                         {
-                            lbLog.Items.Add(DateTime.Now + ": " + "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                            logHandler.PMLog(lblOutputInfo, "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
                         }
                         else
                         {
-                            lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                            logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                         }
                     }
                 }
@@ -1776,22 +1800,22 @@ namespace TimeATT
                 {
                     if (NextFile.Name.IndexOf("Thumbs.db") < 0)
                     {
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Data format error,file name : " + NextFile.Name);
+                        logHandler.PMLog(lblOutputInfo, "*Data format error,file name : " + NextFile.Name);
                     }
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func UploadUserPhoto]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func UploadUserPhoto]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_uploadOneUserPhoto(ListBox lbLog, string fullName)
+        public int sta_uploadOneUserPhoto(ListBox lblOutputInfo, string fullName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -1803,7 +1827,7 @@ namespace TimeATT
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Upload User Photo To the Device succeed!");
+                logHandler.PMLog(lblOutputInfo, "Upload User Photo To the Device succeed!");
             }
             else
             {
@@ -1812,21 +1836,21 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func UploadUserPhoto]Temporarily unsupported");
-            lbLog.Items.Add(fullName);
+            //logHandler.PMLog(lblOutputInfo, "[func UploadUserPhoto]Temporarily unsupported");
+            lblOutputInfo.Items.Add(fullName);
             if (axCZKEM1.SendFile(GetMachineNumber(), fullName))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Upload User Photo To the Device succeed!");
+                logHandler.PMLog(lblOutputInfo, "Upload User Photo To the Device succeed!");
             }
             else
             {
@@ -1835,11 +1859,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Upload user photo failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
@@ -1847,23 +1871,23 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_downloadOneUserPhoto(ListBox lbLog, string userID, string path)
+        public int sta_downloadOneUserPhoto(ListBox lblOutputInfo, string userID, string path)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (path == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Select photo path first.");
+                logHandler.PMLog(lblOutputInfo, "*Select photo path first.");
                 return -1023;
             }
 
             if (userID == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Input User ID first.");
+                logHandler.PMLog(lblOutputInfo, "*Input User ID first.");
                 return -1022;
             }
 
@@ -1875,7 +1899,7 @@ namespace TimeATT
             if (axCZKEM1.DownloadUserPhoto(GetMachineNumber(), photoName, path))
             {
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Download User Photo from the Device succeed!");
+                logHandler.PMLog(lblOutputInfo, "Download User Photo from the Device succeed!");
             }
             else
             {
@@ -1884,31 +1908,31 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "Download user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "Download user photo failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func DownloadUserPhoto]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func DownloadUserPhoto]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_DeleteOneUserPhoto(ListBox lbLog, string userID)
+        public int sta_DeleteOneUserPhoto(ListBox lblOutputInfo, string userID)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (userID == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Input User ID first.");
+                logHandler.PMLog(lblOutputInfo, "*Input User ID first.");
                 return -1022;
             }
 
@@ -1921,7 +1945,7 @@ namespace TimeATT
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Delate User Photo in the Device succeed!");
+                logHandler.PMLog(lblOutputInfo, "Delate User Photo in the Device succeed!");
             }
             else
             {
@@ -1930,15 +1954,15 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Delete user photo failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Delete user photo failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func DeleteUserPhoto]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func DeleteUserPhoto]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
@@ -1948,17 +1972,17 @@ namespace TimeATT
 
         #region SMS
 
-        public int sta_GetSMS(ListBox lbLog, TextBox txtSMSID, ComboBox cbTag, TextBox txtValidMin, DateTimePicker dtStartTime, TextBox txtContent)
+        public int sta_GetSMS(ListBox lblOutputInfo, TextBox txtSMSID, ComboBox cbTag, TextBox txtValidMin, DateTimePicker dtStartTime, TextBox txtContent)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSMSID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -1985,12 +2009,12 @@ namespace TimeATT
                 txtValidMin.Text = iValidMins.ToString();
                 dtStartTime.Text = sStartTime;
                 txtContent.Text = sContent;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get SMS successfully");
+                logHandler.PMLog(lblOutputInfo, "Get SMS successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             axCZKEM1.EnableDevice(iMachineNumber, true);
@@ -1998,29 +2022,29 @@ namespace TimeATT
             return 1;
         }
 
-        public int sta_SetSMS(ListBox lbLog, TextBox txtSMSID, ComboBox cbTag, TextBox txtValidMin, DateTimePicker dtStartTime, TextBox txtContent)
+        public int sta_SetSMS(ListBox lblOutputInfo, TextBox txtSMSID, ComboBox cbTag, TextBox txtValidMin, DateTimePicker dtStartTime, TextBox txtContent)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSMSID.Text.Trim() == "" || cbTag.Text.Trim() == "" || txtValidMin.Text.Trim() == "" || dtStartTime.Text.Trim() == "" || txtContent.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
             if (Convert.ToInt32(txtSMSID.Text.Trim()) <= 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*SMS ID error!");
+                logHandler.PMLog(lblOutputInfo, "*SMS ID error!");
                 return -1023;
             }
 
             if (Convert.ToInt32(txtValidMin.Text.Trim()) < 0 || Convert.ToInt32(txtValidMin.Text.Trim()) > 65535)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Expired time error!");
+                logHandler.PMLog(lblOutputInfo, "*Expired time error!");
                 return -1023;
             }
 
@@ -2044,29 +2068,29 @@ namespace TimeATT
             if (axCZKEM1.SetSMS(iMachineNumber, iSMSID, iTag, iValidMins, sStartTime, sContent))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set the short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set SMS! SMSType=" + iTag.ToString());
+                logHandler.PMLog(lblOutputInfo, "Successfully set SMS! SMSType=" + iTag.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_SetUserSMS(ListBox lbLog, TextBox txtSMSID, ComboBox cbUserID)
+        public int sta_SetUserSMS(ListBox lblOutputInfo, TextBox txtSMSID, ComboBox cbUserID)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSMSID.Text.Trim() == "" || cbUserID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -2082,14 +2106,14 @@ namespace TimeATT
 
             if (axCZKEM1.GetSMS(iMachineNumber, iSMSID, ref iTag, ref iValidMins, ref sStartTime, ref sContent) == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*The SMSID doesn't exist!!");
+                logHandler.PMLog(lblOutputInfo, "*The SMSID doesn't exist!!");
                 axCZKEM1.EnableDevice(iMachineNumber, true);
                 return -1022;
             }
 
             if (iTag != 254)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*The SMS does not Personal SMS,please set it as Personal SMS first!!");
+                logHandler.PMLog(lblOutputInfo, "*The SMS does not Personal SMS,please set it as Personal SMS first!!");
                 axCZKEM1.EnableDevice(iMachineNumber, true);
                 return -1022;
             }
@@ -2097,29 +2121,29 @@ namespace TimeATT
             if (axCZKEM1.SSR_SetUserSMS(iMachineNumber, sEnrollNumber, iSMSID))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set user SMS! ");
+                logHandler.PMLog(lblOutputInfo, "Successfully set user SMS! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_DelSMS(ListBox lbLog, TextBox txtSMSID)
+        public int sta_DelSMS(ListBox lblOutputInfo, TextBox txtSMSID)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSMSID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -2130,29 +2154,29 @@ namespace TimeATT
             if (axCZKEM1.DeleteSMS(iMachineNumber, iSMSID))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully delete SMS! ");
+                logHandler.PMLog(lblOutputInfo, "Successfully delete SMS! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_DelUserSMS(ListBox lbLog, TextBox txtSMSID, ComboBox cbUserID)
+        public int sta_DelUserSMS(ListBox lblOutputInfo, TextBox txtSMSID, ComboBox cbUserID)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSMSID.Text.Trim() == "" || cbUserID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -2164,23 +2188,23 @@ namespace TimeATT
             if (axCZKEM1.SSR_DeleteUserSMS(iMachineNumber, sEnrollNumber, iSMSID))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully delete user SMS! ");
+                logHandler.PMLog(lblOutputInfo, "Successfully delete user SMS! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_ClearSMS(ListBox lbLog)
+        public int sta_ClearSMS(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -2190,23 +2214,23 @@ namespace TimeATT
             if (axCZKEM1.ClearSMS(iMachineNumber))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully clear all the SMS! ");
+                logHandler.PMLog(lblOutputInfo, "Successfully clear all the SMS! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_ClearUserSMS(ListBox lbLog)
+        public int sta_ClearUserSMS(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -2216,12 +2240,12 @@ namespace TimeATT
             if (axCZKEM1.ClearUserSMS(iMachineNumber))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully clear all the user SMS! ");
+                logHandler.PMLog(lblOutputInfo, "Successfully clear all the user SMS! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
@@ -2230,17 +2254,17 @@ namespace TimeATT
         #endregion
 
         #region Workcode
-        public int sta_GetWorkCode(ListBox lbLog, TextBox txtWorkcodeID, TextBox txtWorkcodeName)
+        public int sta_GetWorkCode(ListBox lblOutputInfo, TextBox txtWorkcodeID, TextBox txtWorkcodeName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtWorkcodeID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -2252,12 +2276,12 @@ namespace TimeATT
             if (axCZKEM1.SSR_GetWorkCode(iWorkcodeID, out sName))
             {
                 txtWorkcodeName.Text = sName;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get workcode successfully");
+                logHandler.PMLog(lblOutputInfo, "Get workcode successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             axCZKEM1.EnableDevice(iMachineNumber, true);
@@ -2265,22 +2289,22 @@ namespace TimeATT
             return 1;
         }
 
-        public int sta_SetWorkCode(ListBox lbLog, TextBox txtWorkcodeID, TextBox txtWorkcodeName)
+        public int sta_SetWorkCode(ListBox lblOutputInfo, TextBox txtWorkcodeID, TextBox txtWorkcodeName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtWorkcodeID.Text.Trim() == "" || txtWorkcodeName.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
             int idwErrorCode = 0;
-            // never used int iTmpID = 0;
+            int iTmpID = 0;
             int iWorkcodeID = Convert.ToInt32(txtWorkcodeID.Text.Trim());
             string sName = txtWorkcodeName.Text.Trim();
             /*
@@ -2289,7 +2313,7 @@ namespace TimeATT
             
             if (iTmpID > 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Workcode name duplicated!");
+                logHandler.PMLog(lblOutputInfo, "*Workcode name duplicated!");
                 return -1022;
             }
             
@@ -2297,41 +2321,41 @@ namespace TimeATT
             axCZKEM1.EnableDevice(iMachineNumber, false);
             if (axCZKEM1.SSR_SetWorkCode(iWorkcodeID, sName))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set workcode");
+                logHandler.PMLog(lblOutputInfo, "Successfully set workcode");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             */
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func SSR_GetWorkCodeIDByName]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func SSR_GetWorkCodeIDByName]Temporarily unsupported");
             axCZKEM1.EnableDevice(iMachineNumber, false);
             if (axCZKEM1.SSR_SetWorkCode(iWorkcodeID, sName))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set workcode");
+                logHandler.PMLog(lblOutputInfo, "Successfully set workcode");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
             axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_DelWorkCode(ListBox lbLog, TextBox txtWorkcodeID)
+        public int sta_DelWorkCode(ListBox lblOutputInfo, TextBox txtWorkcodeID)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtWorkcodeID.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -2341,12 +2365,12 @@ namespace TimeATT
             axCZKEM1.EnableDevice(iMachineNumber, false);
             if (axCZKEM1.SSR_DeleteWorkCode(iWorkcodeID))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully delete workcode");
+                logHandler.PMLog(lblOutputInfo, "Successfully delete workcode");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             axCZKEM1.EnableDevice(iMachineNumber, true);
@@ -2354,11 +2378,11 @@ namespace TimeATT
             return 1;
         }
 
-        public int sta_ClearWorkCode(ListBox lbLog)
+        public int sta_ClearWorkCode(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -2367,12 +2391,12 @@ namespace TimeATT
             axCZKEM1.EnableDevice(iMachineNumber, false);
             if (axCZKEM1.SSR_ClearWorkCode())
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully clear all workcode");
+                logHandler.PMLog(lblOutputInfo, "Successfully clear all workcode");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             axCZKEM1.EnableDevice(iMachineNumber, true);
@@ -2516,17 +2540,17 @@ namespace TimeATT
             "firmwareinfo"
         };
 
-        public int sta_GetUserRole(ListBox lbLog, ComboBox cbUserRole, int[] iAppState, int[] iFunUserMng, int[] iFunAccess, int[] iFunICCard, int[] iFunComm, int[] iFunSystem, int[] iFunPersonalize, int[] iFunDataMng, int[] iFunUSBMng, int[] iFunAttSearch, int[] iFunPrint, int[] iFunSMS, int[] iFunWorkCode, int[] iFunAutoTest, int[] iFunSysInfo)
+        public int sta_GetUserRole(ListBox lblOutputInfo, ComboBox cbUserRole, int[] iAppState, int[] iFunUserMng, int[] iFunAccess, int[] iFunICCard, int[] iFunComm, int[] iFunSystem, int[] iFunPersonalize, int[] iFunDataMng, int[] iFunUSBMng, int[] iFunAttSearch, int[] iFunPrint, int[] iFunSMS, int[] iFunWorkCode, int[] iFunAutoTest, int[] iFunSysInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUserRole.Text == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user role!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user role!");
                 return -1023;
             }
 
@@ -2539,17 +2563,17 @@ namespace TimeATT
 
                             if (bFlag == false)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*User Defined Role is unable!");
+                                logHandler.PMLog(lblOutputInfo, "*User Defined Role is unable!");
                                 return -1023;
                             }
                         }
             */
-            // never used int idwErrorCode = 0;
-            // never used string sAppName = "";
-            // never used string sFunName = "";
-            // never used int i = 0, j = 1;
-            // never used int l = 0, k = 1;
-            // never used int iUserRole = 0;
+            int idwErrorCode = 0;
+            string sAppName = "";
+            string sFunName = "";
+            int i = 0, j = 1;
+            int l = 0, k = 1;
+            int iUserRole = 0;
             /*
                         switch (cbUserRole.SelectedIndex)
                         {
@@ -2793,12 +2817,12 @@ namespace TimeATT
                                     }
                                 }
                                 axCZKEM1.RefreshData(iMachineNumber);//After you have set user short message,you should refresh the data of the device
-                                lbLog.Items.Add(DateTime.Now + ": " + "Get user role successfully! ");
+                                logHandler.PMLog(lblOutputInfo, "Get user role successfully! ");
                             }
                             else
                             {
                                 axCZKEM1.GetLastError(ref idwErrorCode);
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get sub menu failed,ErrorCode=" + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get sub menu failed,ErrorCode=" + idwErrorCode.ToString());
 
                                 return 1;
                             }
@@ -2806,26 +2830,26 @@ namespace TimeATT
                         else
                         {
                             axCZKEM1.GetLastError(ref idwErrorCode);
-                            lbLog.Items.Add(DateTime.Now + ": " + "*Get top menu failed,ErrorCode=" + idwErrorCode.ToString());
+                            logHandler.PMLog(lblOutputInfo, "*Get top menu failed,ErrorCode=" + idwErrorCode.ToString());
                         }
                         */
-            lbLog.Items.Add(DateTime.Now + ": " + "[func GetAppOfRole]Temporarily unsupported");
+            logHandler.PMLog(lblOutputInfo, "[func GetAppOfRole]Temporarily unsupported");
             //axCZKEM1.EnableDevice(iMachineNumber, true);
 
             return 1;
         }
 
-        public int sta_SetUserRole(ListBox lbLog, ComboBox cbUserRole, int[] iAppState, int[] iFunUserMng, int[] iFunAccess, int[] iFunICCard, int[] iFunComm, int[] iFunSystem, int[] iFunPersonalize, int[] iFunDataMng, int[] iFunUSBMng, int[] iFunAttSearch, int[] iFunPrint, int[] iFunSMS, int[] iFunWorkCode, int[] iFunAutoTest, int[] iFunSysInfo)
+        public int sta_SetUserRole(ListBox lblOutputInfo, ComboBox cbUserRole, int[] iAppState, int[] iFunUserMng, int[] iFunAccess, int[] iFunICCard, int[] iFunComm, int[] iFunSystem, int[] iFunPersonalize, int[] iFunDataMng, int[] iFunUSBMng, int[] iFunAttSearch, int[] iFunPrint, int[] iFunSMS, int[] iFunWorkCode, int[] iFunAutoTest, int[] iFunSysInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbUserRole.Text == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input user role!");
+                logHandler.PMLog(lblOutputInfo, "*Please input user role!");
                 return -1023;
             }
 
@@ -2838,14 +2862,14 @@ namespace TimeATT
 
                             if (bFlag == false)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*User Defined Role is unable!");
+                                logHandler.PMLog(lblOutputInfo, "*User Defined Role is unable!");
                                 return -1023;
                             }
                         }
             */
-            // never used int idwErrorCode = 0;
-            // never used int iUserRole = 0;
-            // never used int dd = 0;
+            int idwErrorCode = 0;
+            int iUserRole = 0;
+            int dd = 0;
 
             /*
             //SDK支持
@@ -2863,7 +2887,7 @@ namespace TimeATT
                     if (!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[0], sFunUserMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set User Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set User Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2872,7 +2896,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[0], sFunUserMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set User Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set User Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2885,7 +2909,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[1], sFunAccess[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Access Control menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Access Control menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2894,7 +2918,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[1], sFunAccess[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Access Control menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Access Control menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2907,7 +2931,7 @@ namespace TimeATT
                     if (!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[2], sFunICCard[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set IC Card menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set IC Card menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2916,7 +2940,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[2], sFunICCard[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set IC Card menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set IC Card menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2929,7 +2953,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[3], sFunComm[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Comm menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Comm menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2938,7 +2962,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[3], sFunComm[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Comm menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Comm menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2951,7 +2975,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[4], sFunSystem[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set System menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set System menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -2960,7 +2984,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[4], sFunSystem[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set System menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set System menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -2973,7 +2997,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[5], sFunPersonalize[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Personalize menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Personalize menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -2982,7 +3006,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[5], sFunPersonalize[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Personalize menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Personalize menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -2995,7 +3019,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[6], sFunDataMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Data Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Data Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3004,7 +3028,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[6], sFunDataMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Data Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Data Mgt menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3017,7 +3041,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[7], sFunUSBMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set USB Manager menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set USB Manager menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3026,7 +3050,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[7], sFunUSBMng[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set USB Manager menu failed,menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set USB Manager menu failed,menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3039,7 +3063,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[8], sFunAttSearch[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Attendance menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Attendance menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3048,7 +3072,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[8], sFunAttSearch[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Attendance menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Attendance menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3061,7 +3085,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[9], sFunPrint[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Print menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Print menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3070,7 +3094,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[9], sFunPrint[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Print menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Print menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3083,7 +3107,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[10], sFunSMS[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Short Message menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Short Message menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -3092,7 +3116,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[10], sFunSMS[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Short Message menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Short Message menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd ++;
                     }
                 }
@@ -3105,7 +3129,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[11], sFunWorkCode[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Work Code menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Work Code menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3114,7 +3138,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[11], sFunWorkCode[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Work Code menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Work Code menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3127,7 +3151,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[12], sFunAutoTest[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Auto Test menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Auto Test menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3136,7 +3160,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[12], sFunAutoTest[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set Auto Test menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set Auto Test menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3149,7 +3173,7 @@ namespace TimeATT
                     if(!axCZKEM1.SetPermOfAppFun(iMachineNumber, iUserRole, sApp[13], sFunSysInfo[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set System Info menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set System Info menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3158,7 +3182,7 @@ namespace TimeATT
                     if (!axCZKEM1.DeletePermOfAppFun(iMachineNumber, iUserRole, sApp[13], sFunSysInfo[i]))
                     {
                         axCZKEM1.GetLastError(ref idwErrorCode);
-                        lbLog.Items.Add(DateTime.Now + ": " + "*Set System Info menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
+                        logHandler.PMLog(lblOutputInfo, "*Set System Info menu failed,sub menu index=" + i.ToString() + ",ErrorCode=" + idwErrorCode.ToString());
                         dd++;
                     }
                 }
@@ -3166,10 +3190,10 @@ namespace TimeATT
 
             if (dd == 0)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Set User Role successfully~");
+                logHandler.PMLog(lblOutputInfo, "Set User Role successfully~");
             }
             */
-            lbLog.Items.Add(DateTime.Now + ": " + "[func SetPermOfAppFun]Temporarily unsupported");
+            logHandler.PMLog(lblOutputInfo, "[func SetPermOfAppFun]Temporarily unsupported");
             return 1;
         }
         #endregion
@@ -3570,11 +3594,11 @@ namespace TimeATT
         #endregion
 
         #region PersonalizeMng
-        public int sta_GetAllBellData(ListBox lbLog, DataTable dt_allBell)
+        public int sta_GetAllBellData(ListBox lblOutputInfo, DataTable dt_allBell)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3627,7 +3651,7 @@ namespace TimeATT
                     dt_allBell.Rows.Add(dr);
                 }
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get bell successfully");
+                logHandler.PMLog(lblOutputInfo, "Get bell successfully");
             }
             else
             {
@@ -3636,22 +3660,22 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Read all bell schedual data failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Read all bell schedual data failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
             return ret;
         }
 
-        public int sta_setBellInfo(ListBox lbLog, int weekday, int index, int Enable, int Hour, int min, int voice, int bellway, int inerbelldelay, int extbelldelay)
+        public int sta_setBellInfo(ListBox lblOutputInfo, int weekday, int index, int Enable, int Hour, int min, int voice, int bellway, int inerbelldelay, int extbelldelay)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3662,7 +3686,7 @@ namespace TimeATT
                 axCZKEM1.GetDayBellSchCount(GetMachineNumber(), out iCurBellCount);
                 if (iCurBellCount >= 64)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*The bell count is 64!!!");
+                    logHandler.PMLog(lblOutputInfo, "*The bell count is 64!!!");
                     return -1023;
                 }
             }
@@ -3673,7 +3697,7 @@ namespace TimeATT
 
             if (iIsSupportExAlarm <= 0 && (bellway == 1 || bellway == 2))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*The Device does not support external bell!");
+                logHandler.PMLog(lblOutputInfo, "*The Device does not support external bell!");
                 return -1022;
             }
 
@@ -3685,7 +3709,7 @@ namespace TimeATT
             {
                 axCZKEM1.RefreshData(GetMachineNumber());
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Set Bell Schedule successfully!");
+                logHandler.PMLog(lblOutputInfo, "Set Bell Schedule successfully!");
             }
             else
             {
@@ -3694,11 +3718,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Set bell info failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Set bell info failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3727,7 +3751,7 @@ namespace TimeATT
             int tmpIndex1 = 0;
             int tmpIndex2 = 0;
             string funcName = "";
-            // never used int funcID = 0;
+            int funcID = 0;
 
             //tmpIndex1 = shortkeyList.IndexOf("\r\n", 1);
             //tmpIndex2 = shortkeyList.IndexOf(",", 1);
@@ -3746,11 +3770,11 @@ namespace TimeATT
                 getFuncName(funcList, cb_function);
         }
 
-        public int sta_getAllShortkeyFunctionName(ListBox lbLog, ComboBox cb_stKey, ComboBox cb_function)
+        public int sta_getAllShortkeyFunctionName(ListBox lblOutputInfo, ComboBox cb_stKey, ComboBox cb_function)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3780,11 +3804,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Read all ShortkeyName FunctionName data failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Read all ShortkeyName FunctionName data failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3792,11 +3816,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_getShortkeyByID(ListBox lbLog, int ShortKeyID, ref string ShortKeyName, ref string FunctionName, ref int ShortKeyFun, ref int stateCode, ref string stateName, ref string description, ref int intAutoChange, ref string strAutoChangeTime)
+        public int sta_getShortkeyByID(ListBox lblOutputInfo, int ShortKeyID, ref string ShortKeyName, ref string FunctionName, ref int ShortKeyFun, ref int stateCode, ref string stateName, ref string description, ref int intAutoChange, ref string strAutoChangeTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3805,7 +3829,7 @@ namespace TimeATT
 
             if (axCZKEM1.GetShortkey(GetMachineNumber(), ShortKeyID, ref ShortKeyName, ref FunctionName, ref ShortKeyFun, ref stateCode, ref stateName, ref description, ref intAutoChange, ref strAutoChangeTime))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Get shortkey successfully. Name:" + ShortKeyName + ",FunctionName:" + FunctionName);
+                logHandler.PMLog(lblOutputInfo, "Get shortkey successfully. Name:" + ShortKeyName + ",FunctionName:" + FunctionName);
             }
             else
             {
@@ -3814,12 +3838,12 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*GetShortkeyByID failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*GetShortkeyByID failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
                     ret = -1;
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3827,12 +3851,12 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_setShortkey(ListBox lbLog, int ShortKeyID, string ShortKeyName, string FunctionName, int ShortKeyFun, int stateCode, string stateName, string description, int intAutoChange, string strAutoChangeTime)
+        public int sta_setShortkey(ListBox lblOutputInfo, int ShortKeyID, string ShortKeyName, string FunctionName, int ShortKeyFun, int stateCode, string stateName, string description, int intAutoChange, string strAutoChangeTime)
         {
 
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3841,7 +3865,7 @@ namespace TimeATT
 
             if (axCZKEM1.SetShortkey(GetMachineNumber(), ShortKeyID, ShortKeyName, FunctionName, ShortKeyFun, stateCode, stateName, description, intAutoChange, strAutoChangeTime))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Set shortkey successfully. Name:" + ShortKeyName + ",FunctionName:" + FunctionName);
+                logHandler.PMLog(lblOutputInfo, "Set shortkey successfully. Name:" + ShortKeyName + ",FunctionName:" + FunctionName);
             }
             else
             {
@@ -3850,11 +3874,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*SetShortkey failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*SetShortkey failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3864,11 +3888,11 @@ namespace TimeATT
         }
 
 
-        public int sta_uploadAdvertisePicture(ListBox lbLog, string pictureFile, string pictureName)
+        public int sta_uploadAdvertisePicture(ListBox lblOutputInfo, string pictureFile, string pictureName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3878,7 +3902,7 @@ namespace TimeATT
             if (axCZKEM1.UploadPicture(GetMachineNumber(), pictureFile, pictureName))
             {
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Update a advertise picture!");
+                logHandler.PMLog(lblOutputInfo, "Update a advertise picture!");
             }
             else
             {
@@ -3887,11 +3911,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Upload advertise picture failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Upload advertise picture failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3899,11 +3923,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_uploadWallpaper(ListBox lbLog, string pictureFile, string pictureName)
+        public int sta_uploadWallpaper(ListBox lblOutputInfo, string pictureFile, string pictureName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3913,7 +3937,7 @@ namespace TimeATT
             if (axCZKEM1.UploadTheme(GetMachineNumber(), pictureFile, pictureName))
             {
                 ret = 1;
-                lbLog.Items.Add(DateTime.Now + ": " + "Update a wallpaper!");
+                logHandler.PMLog(lblOutputInfo, "Update a wallpaper!");
             }
             else
             {
@@ -3922,11 +3946,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Upload wallpaper failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Upload wallpaper failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3940,11 +3964,11 @@ namespace TimeATT
 
         #region  AttLogMng
 
-        public int sta_readAttLog(ListBox lbLog, DataTable dt_log)
+        public int sta_readAttLog(ListBox lblOutputInfo, DataTable dt_log)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -3985,11 +4009,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Read attlog failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Read attlog failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -3998,11 +4022,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_readLogByPeriod(ListBox lbLog, DataTable dt_logPeriod, string fromTime, string toTime)
+        public int sta_readLogByPeriod(ListBox lblOutputInfo, DataTable dt_logPeriod, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4044,26 +4068,26 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Read attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Read attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func ReadTimeGLogData]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func ReadTimeGLogData]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_DeleteAttLog(ListBox lbLog)
+        public int sta_DeleteAttLog(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4084,11 +4108,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Delete attlog, ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Delete attlog, ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -4097,11 +4121,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_DeleteAttLogByPeriod(ListBox lbLog, string fromTime, string toTime)
+        public int sta_DeleteAttLogByPeriod(ListBox lblOutputInfo, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4122,25 +4146,25 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Delete attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Delete attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func DeleteAttlogBetweenTheDate]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func DeleteAttlogBetweenTheDate]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_DelOldAttLogFromTime(ListBox lbLog, string fromTime)
+        public int sta_DelOldAttLogFromTime(ListBox lblOutputInfo, string fromTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "Please connect first!");
                 return -1024;
             }
 
@@ -4161,25 +4185,25 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Delete old attlog from time failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Delete old attlog from time failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func DeleteAttlogByTime]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func DeleteAttlogByTime]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
         }
 
-        public int sta_ReadNewAttLog(ListBox lbLog, DataTable dt_logNew)
+        public int sta_ReadNewAttLog(ListBox lblOutputInfo, DataTable dt_logNew)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "Please connect first!");
                 return -1024;
             }
 
@@ -4221,15 +4245,15 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Read attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Read attlog by period failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
-            //lbLog.Items.Add(DateTime.Now + ": " + "[func ReadNewGLogData]Temporarily unsupported");
+            //logHandler.PMLog(lblOutputInfo, "[func ReadNewGLogData]Temporarily unsupported");
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
 
             return ret;
@@ -4237,11 +4261,11 @@ namespace TimeATT
         #endregion
 
         #region  AttPhotoMng
-        public int sta_GetAllAttPhoto(ListBox lbLog, string photoPath)
+        public int sta_GetAllAttPhoto(ListBox lblOutputInfo, string photoPath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4258,11 +4282,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4299,18 +4323,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "Get All ATT photo succeed.");
+                logHandler.PMLog(lblOutputInfo, "Get All ATT photo succeed.");
                 ret = 1;
             }
 
@@ -4319,11 +4343,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_GetAllAttPhotoByTimePeriod(ListBox lbLog, string photoPath, string fromTime, string toTime)
+        public int sta_GetAllAttPhotoByTimePeriod(ListBox lblOutputInfo, string photoPath, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4332,7 +4356,7 @@ namespace TimeATT
             axCZKEM1.EnableDevice(iMachineNumber, false);
 
 
-            lbLog.Items.Add(fromTime + "-----" + toTime);
+            lblOutputInfo.Items.Add(fromTime + "-----" + toTime);
             string AllPhotoName = "";
             if (!axCZKEM1.GetPhotoNamesByTime(GetMachineNumber(), 1, fromTime, toTime, out AllPhotoName))
             {
@@ -4341,11 +4365,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4382,18 +4406,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "GetAllAttPhotoByTimePeriod succeed.");
+                logHandler.PMLog(lblOutputInfo, "GetAllAttPhotoByTimePeriod succeed.");
                 ret = 1;
             }
 
@@ -4402,11 +4426,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_GetAllPassPhoto(ListBox lbLog, string photoPath)
+        public int sta_GetAllPassPhoto(ListBox lblOutputInfo, string photoPath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4423,11 +4447,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4465,18 +4489,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "Get All PASS photo succeed.");
+                logHandler.PMLog(lblOutputInfo, "Get All PASS photo succeed.");
                 ret = 1;
             }
 
@@ -4485,11 +4509,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_GetPassPhotoByTimePeriod(ListBox lbLog, string photoPath, string fromTime, string toTime)
+        public int sta_GetPassPhotoByTimePeriod(ListBox lblOutputInfo, string photoPath, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4506,11 +4530,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4548,18 +4572,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "GetPassPhotoByTimePeriod succeed.");
+                logHandler.PMLog(lblOutputInfo, "GetPassPhotoByTimePeriod succeed.");
                 ret = 1;
             }
 
@@ -4568,11 +4592,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_GetAllBadPhoto(ListBox lbLog, string photoPath)
+        public int sta_GetAllBadPhoto(ListBox lblOutputInfo, string photoPath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4589,11 +4613,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4632,18 +4656,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "Get All BAD photo succeed.");
+                logHandler.PMLog(lblOutputInfo, "Get All BAD photo succeed.");
                 ret = 1;
             }
 
@@ -4652,11 +4676,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_GetBadPhotoByTimePeriod(ListBox lbLog, string photoPath, string fromTime, string toTime)
+        public int sta_GetBadPhotoByTimePeriod(ListBox lblOutputInfo, string photoPath, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4673,11 +4697,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get photo name failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
             else
@@ -4715,18 +4739,18 @@ namespace TimeATT
 
                             if (idwErrorCode != 0)
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
+                                logHandler.PMLog(lblOutputInfo, "*Get photo failed,ErrorCode: " + idwErrorCode.ToString());
                             }
                             else
                             {
-                                lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                                logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                             }
                             break;
                         }
                         photoname = "";
                     }
                 }
-                lbLog.Items.Add(DateTime.Now + ": " + "GetBadPhotoByTimePeriod succeed.");
+                logHandler.PMLog(lblOutputInfo, "GetBadPhotoByTimePeriod succeed.");
                 ret = 1;
             }
 
@@ -4735,11 +4759,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearAllAttPhoto(ListBox lbLog, int iFlag, string fromTime, string toTime)
+        public int sta_ClearAllAttPhoto(ListBox lblOutputInfo, int iFlag, string fromTime, string toTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -4749,13 +4773,13 @@ namespace TimeATT
 
             if (axCZKEM1.ClearPhotoByTime(iMachineNumber, iFlag, fromTime, toTime))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Clear capture picture OK");
+                logHandler.PMLog(lblOutputInfo, "Clear capture picture OK");
             }
             else
             {
                 int errorcode = -1;
                 axCZKEM1.GetLastError(ref errorcode);
-                lbLog.Items.Add(DateTime.Now + ": " + "Clear capture picture Failed" + errorcode.ToString());
+                logHandler.PMLog(lblOutputInfo, "Clear capture picture Failed" + errorcode.ToString());
             }
 
             axCZKEM1.EnableDevice(GetMachineNumber(), true);//enable the device
@@ -4765,11 +4789,11 @@ namespace TimeATT
         #endregion
 
         #region OPLOG
-        public int sta_GetOplog(ListBox lbLog, DataTable dt_Oplog)
+        public int sta_GetOplog(ListBox lblOutputInfo, DataTable dt_Oplog)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4795,8 +4819,8 @@ namespace TimeATT
                 int iSencond = 0;
                 int iAdmin = 0;
 
-                // never used string sUser = null;
-                // never used string sAdmin = null;
+                string sUser = null;
+                string sAdmin = null;
                 string sTime = null;
 
                 //while (axCZKEM1.SSR_GetSuperLogData(GetMachineNumber(), out idwTMachineNumber, out sAdmin, out sUser,
@@ -4819,7 +4843,7 @@ namespace TimeATT
                     dt_Oplog.Rows.Add(dr);
                 }
 
-                lbLog.Items.Add(DateTime.Now + ": " + "Down oplog success.");
+                logHandler.PMLog(lblOutputInfo, "Down oplog success.");
                 ret = 1;
             }
             else
@@ -4829,11 +4853,11 @@ namespace TimeATT
 
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Get OPLOG failed,ErrorCode: " + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Get OPLOG failed,ErrorCode: " + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
             }
 
@@ -4842,11 +4866,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearOplog(ListBox lbLog)
+        public int sta_ClearOplog(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4856,7 +4880,7 @@ namespace TimeATT
             if (axCZKEM1.ClearSLog(GetMachineNumber()))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All operation logs have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All operation logs have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -4864,11 +4888,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "ClearOplog failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "ClearOplog failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -4879,11 +4903,11 @@ namespace TimeATT
         #endregion
 
         #region ClearData
-        public int sta_ClearAdmin(ListBox lbLog)
+        public int sta_ClearAdmin(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4893,7 +4917,7 @@ namespace TimeATT
             if (axCZKEM1.ClearAdministrators(GetMachineNumber()))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All administrator have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All administrator have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -4901,11 +4925,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*ClearAdmin failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*ClearAdmin failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -4914,11 +4938,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearAllLogs(ListBox lbLog)
+        public int sta_ClearAllLogs(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4928,7 +4952,7 @@ namespace TimeATT
             if (axCZKEM1.ClearData(GetMachineNumber(), 1))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All AttLogs have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All AttLogs have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -4936,11 +4960,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*ClearAllLogs failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*ClearAllLogs failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -4949,11 +4973,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearAllFps(ListBox lbLog)
+        public int sta_ClearAllFps(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4963,7 +4987,7 @@ namespace TimeATT
             if (axCZKEM1.ClearData(GetMachineNumber(), 2))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All fp templates have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All fp templates have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -4971,11 +4995,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*ClearAllFps failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*ClearAllFps failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -4984,11 +5008,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearAllUsers(ListBox lbLog)
+        public int sta_ClearAllUsers(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -4998,7 +5022,7 @@ namespace TimeATT
             if (axCZKEM1.ClearData(GetMachineNumber(), 5))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All users have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All users have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -5006,11 +5030,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*ClearAllUsers failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*ClearAllUsers failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -5019,11 +5043,11 @@ namespace TimeATT
             return ret;
         }
 
-        public int sta_ClearAllData(ListBox lbLog)
+        public int sta_ClearAllData(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
             int ret = 0;
@@ -5033,7 +5057,7 @@ namespace TimeATT
             if (axCZKEM1.ClearKeeperData(GetMachineNumber()))
             {
                 axCZKEM1.RefreshData(GetMachineNumber());//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "All Data have been cleared from teiminal!");
+                logHandler.PMLog(lblOutputInfo, "All Data have been cleared from teiminal!");
                 ret = 1;
             }
             else
@@ -5041,11 +5065,11 @@ namespace TimeATT
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode != 0)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*ClearAllData failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*ClearAllData failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "No data from terminal returns!");
+                    logHandler.PMLog(lblOutputInfo, "No data from terminal returns!");
                 }
                 ret = idwErrorCode;
             }
@@ -5061,17 +5085,17 @@ namespace TimeATT
         #region AccessMng
 
         #region TimeZone
-        public int sta_GetTZInfo(ListBox lbLog, TextBox txtTZIndex, DateTimePicker dtSUNs, DateTimePicker dtMONs, DateTimePicker dtTUEs, DateTimePicker dtWENs, DateTimePicker dtTHUs, DateTimePicker dtFRIs, DateTimePicker dtSATs, DateTimePicker dtSUNe, DateTimePicker dtMONe, DateTimePicker dtTUEe, DateTimePicker dtWENe, DateTimePicker dtTHUe, DateTimePicker dtFRIe, DateTimePicker dtSATe)
+        public int sta_GetTZInfo(ListBox lblOutputInfo, TextBox txtTZIndex, DateTimePicker dtSUNs, DateTimePicker dtMONs, DateTimePicker dtTUEs, DateTimePicker dtWENs, DateTimePicker dtTHUs, DateTimePicker dtFRIs, DateTimePicker dtSATs, DateTimePicker dtSUNe, DateTimePicker dtMONe, DateTimePicker dtTUEe, DateTimePicker dtWENe, DateTimePicker dtTHUe, DateTimePicker dtFRIe, DateTimePicker dtSATe)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtTZIndex.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input TimeZoneIndex first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input TimeZoneIndex first!");
                 return -1023;
             }
 
@@ -5080,7 +5104,7 @@ namespace TimeATT
 
             if (iTimeZoneID <= 0 || iTimeZoneID > 50)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Timezone index error!");
+                logHandler.PMLog(lblOutputInfo, "*Timezone index error!");
                 return -1022;
             }
 
@@ -5118,41 +5142,41 @@ namespace TimeATT
                 dtSATs.Text = array[24] + ":" + array[25];
                 dtSATe.Text = array[26] + ":" + array[27];
 
-                lbLog.Items.Add(DateTime.Now + ": " + "Get TZ info successfully");
+                logHandler.PMLog(lblOutputInfo, "Get TZ info successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode == -2 || idwErrorCode == -12008)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",Over TimeZoneIndex limits!");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",Over TimeZoneIndex limits!");
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 }
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_SetTZInfo(ListBox lbLog, TextBox txtTZIndex, DateTimePicker dtSUNs, DateTimePicker dtMONs, DateTimePicker dtTUEs, DateTimePicker dtWENs, DateTimePicker dtTHUs, DateTimePicker dtFRIs, DateTimePicker dtSATs, DateTimePicker dtSUNe, DateTimePicker dtMONe, DateTimePicker dtTUEe, DateTimePicker dtWENe, DateTimePicker dtTHUe, DateTimePicker dtFRIe, DateTimePicker dtSATe)
+        public int sta_SetTZInfo(ListBox lblOutputInfo, TextBox txtTZIndex, DateTimePicker dtSUNs, DateTimePicker dtMONs, DateTimePicker dtTUEs, DateTimePicker dtWENs, DateTimePicker dtTHUs, DateTimePicker dtFRIs, DateTimePicker dtSATs, DateTimePicker dtSUNe, DateTimePicker dtMONe, DateTimePicker dtTUEe, DateTimePicker dtWENe, DateTimePicker dtTHUe, DateTimePicker dtFRIe, DateTimePicker dtSATe)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtTZIndex.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
             if (dtSUNs.Text.Trim() == "" || dtMONs.Text.Trim() == "" || dtTUEs.Text.Trim() == "" || dtWENs.Text.Trim() == "" || dtTHUs.Text.Trim() == "" || dtFRIs.Text.Trim() == "" || dtSATs.Text.Trim() == "" || dtSUNe.Text.Trim() == "" || dtMONe.Text.Trim() == "" || dtTUEe.Text.Trim() == "" || dtWENe.Text.Trim() == "" || dtTHUe.Text.Trim() == "" || dtFRIe.Text.Trim() == "" || dtSATe.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5160,7 +5184,7 @@ namespace TimeATT
 
             if (iTimeZoneID <= 0 || iTimeZoneID > 50)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Timezone index error!");
+                logHandler.PMLog(lblOutputInfo, "*Timezone index error!");
                 return -1022;
             }
 
@@ -5196,22 +5220,22 @@ namespace TimeATT
             {
                 //the data in the device should be refreshed
                 axCZKEM1.RefreshData(iMachineNumber);
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set the TimeZone" + iTimeZoneID + "！");
+                logHandler.PMLog(lblOutputInfo, "Successfully set the TimeZone" + iTimeZoneID + "！");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode == -12008)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",Over TimeZoneIndex limits!");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",Over TimeZoneIndex limits!");
                 }
                 else if (idwErrorCode == 4)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",TimeZone Format Error!");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ",TimeZone Format Error!");
                 }
                 else
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 }
             }
             return 1;
@@ -5220,17 +5244,17 @@ namespace TimeATT
 
         #region GroupTimeZone
         //Get the time zones used by specified group and other interrelated information.
-        public int sta_GetGroupTZ(ListBox lbLog, TextBox txtACGroupNo, TextBox txtTZIndex1, TextBox txtTZIndex2, TextBox txtTZIndex3, ComboBox cboACValidHoliday, ComboBox cbVerifyStyle)
+        public int sta_GetGroupTZ(ListBox lblOutputInfo, TextBox txtACGroupNo, TextBox txtTZIndex1, TextBox txtTZIndex2, TextBox txtTZIndex3, ComboBox cboACValidHoliday, ComboBox cbVerifyStyle)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtACGroupNo.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5238,7 +5262,7 @@ namespace TimeATT
 
             if (iGroupNo < 1 || iGroupNo > 99)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Group ID error!");
+                logHandler.PMLog(lblOutputInfo, "*Group ID error!");
                 return -1022;
             }
 
@@ -5257,12 +5281,12 @@ namespace TimeATT
                 txtTZIndex3.Text = iTZ3.ToString();
                 cboACValidHoliday.Text = iValidHoliday.ToString();
                 cbVerifyStyle.SelectedIndex = iVerifyStyle;
-                lbLog.Items.Add(DateTime.Now + ": " + "Get group TZ successfully");
+                logHandler.PMLog(lblOutputInfo, "Get group TZ successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
 
@@ -5270,17 +5294,17 @@ namespace TimeATT
         }
 
         //Set the time zones used by specified group and other interrelated information.
-        public int sta_SetGroupTZ(ListBox lbLog, TextBox txtACGroupNo, TextBox txtTZIndex1, TextBox txtTZIndex2, TextBox txtTZIndex3, ComboBox cboACValidHoliday, ComboBox cbVerifyStyle)
+        public int sta_SetGroupTZ(ListBox lblOutputInfo, TextBox txtACGroupNo, TextBox txtTZIndex1, TextBox txtTZIndex2, TextBox txtTZIndex3, ComboBox cboACValidHoliday, ComboBox cbVerifyStyle)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtACGroupNo.Text.Trim() == "" || txtTZIndex1.Text.Trim() == "" || txtTZIndex2.Text.Trim() == "" || txtTZIndex3.Text.Trim() == "" || cboACValidHoliday.Text.Trim() == "" || cbVerifyStyle.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5288,7 +5312,7 @@ namespace TimeATT
 
             if (iGroupNo < 1 || iGroupNo > 99)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Group ID error!");
+                logHandler.PMLog(lblOutputInfo, "*Group ID error!");
                 return -1022;
             }
 
@@ -5298,7 +5322,7 @@ namespace TimeATT
 
             if (iTZ1 < 0 || iTZ1 > 50 || iTZ2 < 0 || iTZ2 > 50 || iTZ3 < 0 || iTZ3 > 50)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Timezone index error!");
+                logHandler.PMLog(lblOutputInfo, "*Timezone index error!");
                 return -1022;
             }
 
@@ -5311,12 +5335,12 @@ namespace TimeATT
             if (axCZKEM1.SSR_SetGroupTZ(iMachineNumber, iGroupNo, iTZ1, iTZ2, iTZ3, iValidHoliday, iVerifyStyle))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Set GroupTZ, GroupNo:" + iGroupNo.ToString() + " VerifyStyle:" + iVerifyStyle.ToString());
+                logHandler.PMLog(lblOutputInfo, "Set GroupTZ, GroupNo:" + iGroupNo.ToString() + " VerifyStyle:" + iVerifyStyle.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5324,17 +5348,17 @@ namespace TimeATT
         #endregion
 
         #region UnlockGroup
-        public int sta_GetUnLockGroup(ListBox lbLog, ComboBox cboACComNo, ComboBox cboGroup1, ComboBox cboGroup2, ComboBox cboGroup3, ComboBox cboGroup4, ComboBox cboGroup5)
+        public int sta_GetUnLockGroup(ListBox lblOutputInfo, ComboBox cboACComNo, ComboBox cboGroup1, ComboBox cboGroup2, ComboBox cboGroup3, ComboBox cboGroup4, ComboBox cboGroup5)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboACComNo.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input params first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input params first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5353,28 +5377,28 @@ namespace TimeATT
                 cboGroup3.Text = iGroup3.ToString();
                 cboGroup4.Text = iGroup4.ToString();
                 cboGroup5.Text = iGroup5.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get unlock group successfully");
+                logHandler.PMLog(lblOutputInfo, "Get unlock group successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_SetUnLockGroup(ListBox lbLog, ComboBox cboACComNo, ComboBox cboGroup1, ComboBox cboGroup2, ComboBox cboGroup3, ComboBox cboGroup4, ComboBox cboGroup5)
+        public int sta_SetUnLockGroup(ListBox lblOutputInfo, ComboBox cboACComNo, ComboBox cboGroup1, ComboBox cboGroup2, ComboBox cboGroup3, ComboBox cboGroup4, ComboBox cboGroup5)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboACComNo.Text.Trim() == "" || cboGroup1.Text.Trim() == "" || cboGroup2.Text.Trim() == "" || cboGroup3.Text.Trim() == "" || cboGroup4.Text.Trim() == "" || cboGroup5.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input the five groups first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input the five groups first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5389,15 +5413,15 @@ namespace TimeATT
             if (axCZKEM1.SSR_SetUnLockGroup(iMachineNumber, iComNo, iGroup1, iGroup2, iGroup3, iGroup4, iGroup5))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "SetUnlockGroups, Groups:" + iGroup1.ToString() + ":" + iGroup2.ToString() + ":" + iGroup3.ToString() + ":" + iGroup4.ToString() + ":" + iGroup5.ToString());
+                logHandler.PMLog(lblOutputInfo, "SetUnlockGroups, Groups:" + iGroup1.ToString() + ":" + iGroup2.ToString() + ":" + iGroup3.ToString() + ":" + iGroup4.ToString() + ":" + iGroup5.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
                 if (idwErrorCode == -2001)
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ". Group Not Exist");
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString() + ". Group Not Exist");
                 else
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                    logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5406,17 +5430,17 @@ namespace TimeATT
         #endregion
 
         #region UserGroup
-        public int sta_GetUserGroup(ListBox lbLog, ComboBox cboUAUserIDGroup, TextBox txtGroupNo1)
+        public int sta_GetUserGroup(ListBox lblOutputInfo, ComboBox cboUAUserIDGroup, TextBox txtGroupNo1)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboUAUserIDGroup.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5427,28 +5451,28 @@ namespace TimeATT
             if (axCZKEM1.GetUserGroup(iMachineNumber, iUserID, ref iUserGrp))
             {
                 txtGroupNo1.Text = iUserGrp.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user group successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user group successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_SetUserGroup(ListBox lbLog, ComboBox cboUAUserIDGroup, TextBox txtGroupNo1)
+        public int sta_SetUserGroup(ListBox lblOutputInfo, ComboBox cboUAUserIDGroup, TextBox txtGroupNo1)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboUAUserIDGroup.Text.Trim() == "" || txtGroupNo1.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5459,12 +5483,12 @@ namespace TimeATT
             if (axCZKEM1.SetUserGroup(iMachineNumber, iUserID, iUserGrp))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Set User Group, UserID:" + iUserID.ToString() + ", Group No:" + iUserGrp.ToString());
+                logHandler.PMLog(lblOutputInfo, "Set User Group, UserID:" + iUserID.ToString() + ", Group No:" + iUserGrp.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5473,17 +5497,17 @@ namespace TimeATT
         #endregion
 
         #region UserTimeZone
-        public int sta_GetUserTZStr(ListBox lbLog, ComboBox cboUAUserIDTZ, ComboBox cbUserTZtype, TextBox txtUTZIndex1, TextBox txtUTZIndex2, TextBox txtUTZIndex3)
+        public int sta_GetUserTZStr(ListBox lblOutputInfo, ComboBox cboUAUserIDTZ, ComboBox cbUserTZtype, TextBox txtUTZIndex1, TextBox txtUTZIndex2, TextBox txtUTZIndex3)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboUAUserIDTZ.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5494,13 +5518,13 @@ namespace TimeATT
             /*
             int [] iTZs = new int[4];
             axCZKEM1.GetUserTZs(iMachineNumber, iUserID, ref iTZs[0]);
-            lbLog.Items.Add(iTZs[0].ToString() + iTZs[1].ToString() + iTZs[2].ToString() + iTZs[3].ToString());
+            lblOutputInfo.Items.Add(iTZs[0].ToString() + iTZs[1].ToString() + iTZs[2].ToString() + iTZs[3].ToString());
             */
 
             if (axCZKEM1.GetUserTZStr(iMachineNumber, iUserID, ref sTZs))//TZs is in the form of string.
             {
                 string[] s = sTZs.Split(new char[] { ':' });
-                lbLog.Items.Add(sTZs);
+                lblOutputInfo.Items.Add(sTZs);
                 txtUTZIndex1.Text = s[0];
                 txtUTZIndex2.Text = s[1];
                 txtUTZIndex3.Text = s[2];
@@ -5535,28 +5559,28 @@ namespace TimeATT
                     }
                 }
 
-                lbLog.Items.Add(DateTime.Now + ": " + "Get user TZ successfully");
+                logHandler.PMLog(lblOutputInfo, "Get user TZ successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_SetUserTZStr(ListBox lbLog, ComboBox cboUAUserIDTZ, ComboBox cbUserTZtype, TextBox txtUTZIndex1, TextBox txtUTZIndex2, TextBox txtUTZIndex3)
+        public int sta_SetUserTZStr(ListBox lblOutputInfo, ComboBox cboUAUserIDTZ, ComboBox cbUserTZtype, TextBox txtUTZIndex1, TextBox txtUTZIndex2, TextBox txtUTZIndex3)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboUAUserIDTZ.Text.Trim() == "" || cbUserTZtype.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5574,7 +5598,7 @@ namespace TimeATT
             {
                 if (txtUTZIndex1.Text.Trim() == "" || txtUTZIndex2.Text.Trim() == "" || txtUTZIndex3.Text.Trim() == "")
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Please input TZ first!");
+                    logHandler.PMLog(lblOutputInfo, "*Please input TZ first!");
                     return -1023;
                 }
 
@@ -5584,7 +5608,7 @@ namespace TimeATT
 
                 if (iTZ1 < 0 || iTZ1 > 50 || iTZ2 < 0 || iTZ2 > 50 || iTZ3 < 0 || iTZ3 > 50)
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*Timezone index error!");
+                    logHandler.PMLog(lblOutputInfo, "*Timezone index error!");
                     return -1022;
                 }
             }
@@ -5597,12 +5621,12 @@ namespace TimeATT
             if (axCZKEM1.SetUserTZStr(iMachineNumber, iUserID, sTZs))//TZs is in strings.
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Set user TZ successfully");
+                logHandler.PMLog(lblOutputInfo, "Set user TZ successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5610,17 +5634,17 @@ namespace TimeATT
         #endregion
 
         #region Check Use GroupTimeZone or UserTimeZone
-        public int sta_UseGroupTimeZone(ListBox lbLog, ComboBox cboUAUserIDTZ, Label lbUserTimezoneType)
+        public int sta_UseGroupTimeZone(ListBox lblOutputInfo, ComboBox cboUAUserIDTZ, Label lbUserTimezoneType)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (cboUAUserIDTZ.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input the UserID first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input the UserID first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5633,18 +5657,18 @@ namespace TimeATT
                 if (axCZKEM1.UseGroupTimeZone())
                 {
                     lbUserTimezoneType.Text = "Using Group TimeZone";
-                    lbLog.Items.Add(DateTime.Now + ": " + "Using Group TimeZone");
+                    logHandler.PMLog(lblOutputInfo, "Using Group TimeZone");
                 }
                 else
                 {
                     lbUserTimezoneType.Text = "Not Using Group TimeZone";
-                    lbLog.Items.Add(DateTime.Now + ": " + "Not Using Group TimeZone");
+                    logHandler.PMLog(lblOutputInfo, "Not Using Group TimeZone");
                 }
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5692,23 +5716,23 @@ namespace TimeATT
         #endregion
 
         #region controldevice
-        public int sta_ACUnlock(ListBox lbLog, TextBox txtDelay)
+        public int sta_ACUnlock(ListBox lblOutputInfo, TextBox txtDelay)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtDelay.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
             if (Convert.ToInt32(txtDelay.Text.Trim()) < 0 || Convert.ToInt32(txtDelay.Text.Trim()) > 10)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Delay error!");
+                logHandler.PMLog(lblOutputInfo, "*Delay error!");
                 return -1022;
             }
 
@@ -5719,49 +5743,49 @@ namespace TimeATT
             if (axCZKEM1.ACUnlock(iMachineNumber, iDelay))
             {
 
-                lbLog.Items.Add(DateTime.Now + ": " + "ACUnlock, Dalay Seconds:" + iDelay.ToString());
+                logHandler.PMLog(lblOutputInfo, "ACUnlock, Dalay Seconds:" + iDelay.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_CloseAlarm(ListBox lbLog)
+        public int sta_CloseAlarm(ListBox lblOutputInfo)
         {
             /*
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
             int idwErrorCode = 0;
 
             if(axCZKEM1.CloseAlarm(iMachineNumber))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Close alarm successful");
+                logHandler.PMLog(lblOutputInfo, "Close alarm successful");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
              * */
-            lbLog.Items.Add(DateTime.Now + ": " + "[func CloseAlarm]Temporarily unsupported");
+            logHandler.PMLog(lblOutputInfo, "[func CloseAlarm]Temporarily unsupported");
             return 1;
         }
         #endregion
 
         #region get and set wiegandfmt
-        public int sta_GetWiegandFmt(ListBox lbLog, TextBox txtShowWiegandFmt)
+        public int sta_GetWiegandFmt(ListBox lblOutputInfo, TextBox txtShowWiegandFmt)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
@@ -5772,22 +5796,22 @@ namespace TimeATT
             if (axCZKEM1.GetWiegandFmt(iMachineNumber, ref sWiegandFmt))
             {
                 txtShowWiegandFmt.Text = sWiegandFmt;
-                lbLog.Items.Add(DateTime.Now + ": " + "Operation Successed！");
+                logHandler.PMLog(lblOutputInfo, "Operation Successed！");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
         }
 
-        public int sta_SetWiegandFmt(ListBox lbLog, TextBox txtSetWiegandFmt)
+        public int sta_SetWiegandFmt(ListBox lblOutputInfo, TextBox txtSetWiegandFmt)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
@@ -5798,12 +5822,12 @@ namespace TimeATT
             if (axCZKEM1.SetWiegandFmt(iMachineNumber, sWiegandFmt))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Operation Successed！");
+                logHandler.PMLog(lblOutputInfo, "Operation Successed！");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5811,17 +5835,17 @@ namespace TimeATT
         #endregion
 
         #region Holiday
-        public int sta_SetHoliday(ListBox lbLog, TextBox txtHolidayId, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtTimeZoneId)
+        public int sta_SetHoliday(ListBox lblOutputInfo, TextBox txtHolidayId, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtTimeZoneId)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtHolidayId.Text.Trim() == "" || txtTimeZoneId.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5829,14 +5853,14 @@ namespace TimeATT
 
             if (iHolidayId < 1 || iHolidayId > 99)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Holiday ID error");
+                logHandler.PMLog(lblOutputInfo, "*Holiday ID error");
                 return -1022;
             }
 
             int iTimezomeId = Convert.ToInt32(txtTimeZoneId.Text.Trim());
             if (iTimezomeId < 1 || iTimezomeId > 50)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Timezone index error!");
+                logHandler.PMLog(lblOutputInfo, "*Timezone index error!");
                 return -1023;
             }
 
@@ -5852,29 +5876,29 @@ namespace TimeATT
             if (axCZKEM1.SSR_SetHoliday(iMachineNumber, iHolidayId, iSMonth, iSDay, iEMonth, iEDay, iTimezomeId))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Operation Successed！");
+                logHandler.PMLog(lblOutputInfo, "Operation Successed！");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
 
         }
 
-        public int sta_GetHoliday(ListBox lbLog, TextBox txtHolidayId, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtTimeZoneId)
+        public int sta_GetHoliday(ListBox lblOutputInfo, TextBox txtHolidayId, DateTimePicker dtStartDate, DateTimePicker dtEndDate, TextBox txtTimeZoneId)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (txtHolidayId.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
 
@@ -5882,7 +5906,7 @@ namespace TimeATT
 
             if (iHolidayId < 1 || iHolidayId > 99)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Holiday ID error");
+                logHandler.PMLog(lblOutputInfo, "*Holiday ID error");
                 return -1022;
             }
 
@@ -5901,12 +5925,12 @@ namespace TimeATT
 
                 txtTimeZoneId.Text = iTimeZoneId.ToString();
 
-                lbLog.Items.Add(DateTime.Now + ": " + "Get holiday successfully");
+                logHandler.PMLog(lblOutputInfo, "Get holiday successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -5914,17 +5938,17 @@ namespace TimeATT
         #endregion
 
         #region Set&Get SystemOption
-        public int sta_SetNONCTimeZone(ListBox lbLog, int parName, TextBox parm)
+        public int sta_SetNONCTimeZone(ListBox lblOutputInfo, int parName, TextBox parm)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
             if (parm.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input data first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input data first!");
                 return -1023;
             }
             int idwErrorCode = 0;
@@ -5935,7 +5959,7 @@ namespace TimeATT
             string strParName = "";
             if (Convert.ToInt32(par) < 0 || Convert.ToInt32(par) > 50)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*The timezone index error!");
+                logHandler.PMLog(lblOutputInfo, "*The timezone index error!");
                 return -1022;
             }
 
@@ -5958,7 +5982,7 @@ namespace TimeATT
                 axCZKEM1.GetSysOption(iMachineNumber, strParName, out strTmpPar);
                 if (strTmpPar.Equals(par))
                 {
-                    lbLog.Items.Add(DateTime.Now + ": " + "*The NO and NC can not be same!");
+                    logHandler.PMLog(lblOutputInfo, "*The NO and NC can not be same!");
                     return -1021;
                 }
             }
@@ -5974,23 +5998,23 @@ namespace TimeATT
 
             if (axCZKEM1.SetSysOption(iMachineNumber, strParName, par))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Operation Successed!");
+                logHandler.PMLog(lblOutputInfo, "Operation Successed!");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
 
             return 1;
         }
 
-        public int sta_GetNONCTimeZone(ListBox lbLog, int parName, TextBox parm)
+        public int sta_GetNONCTimeZone(ListBox lblOutputInfo, int parName, TextBox parm)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect the device first!");
+                logHandler.PMLog(lblOutputInfo, "*Please connect the device first!");
                 return -1024;
             }
 
@@ -6001,12 +6025,12 @@ namespace TimeATT
             if (axCZKEM1.GetDeviceInfo(iMachineNumber, parName, ref par))
             {
                 parm.Text = par.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get NO/NC TZ successfully");
+                logHandler.PMLog(lblOutputInfo, "Get NO/NC TZ successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
              */
@@ -6025,12 +6049,12 @@ namespace TimeATT
             if (axCZKEM1.GetSysOption(iMachineNumber, strParName, out par))
             {
                 parm.Text = par.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get NO/NC TZ successfully");
+                logHandler.PMLog(lblOutputInfo, "Get NO/NC TZ successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
                 return idwErrorCode;
             }
             return 1;
@@ -6044,33 +6068,33 @@ namespace TimeATT
 
         #region sync time
         //Synchronize the device time as the computer's.
-        public int sta_SYNCTime(ListBox lbLog, Label lbDeviceTime)
+        public int sta_SYNCTime(ListBox lblOutputInfo, Label lbDeviceTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (axCZKEM1.SetDeviceTime(iMachineNumber))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully SYNC the PC's time to device!");
+                logHandler.PMLog(lblOutputInfo, "Successfully SYNC the PC's time to device!");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_GetDeviceTime(ListBox lbLog, Label lbDeviceTime)
+        public int sta_GetDeviceTime(ListBox lblOutputInfo, Label lbDeviceTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -6084,22 +6108,22 @@ namespace TimeATT
             if (axCZKEM1.GetDeviceTime(iMachineNumber, ref idwYear, ref idwMonth, ref idwDay, ref idwHour, ref idwMinute, ref idwSecond))//show the time
             {
                 lbDeviceTime.Text = idwYear.ToString() + "-" + idwMonth.ToString() + "-" + idwDay.ToString() + " " + idwHour.ToString() + ":" + idwMinute.ToString() + ":" + idwSecond.ToString();
-                lbLog.Items.Add(DateTime.Now + ": " + "Get devie time successfully");
+                logHandler.PMLog(lblOutputInfo, "Get devie time successfully");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_SetDeviceTime(ListBox lbLog, DateTimePicker dtDeviceTime)
+        public int sta_SetDeviceTime(ListBox lblOutputInfo, DateTimePicker dtDeviceTime)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -6114,12 +6138,12 @@ namespace TimeATT
             if (axCZKEM1.SetDeviceTime2(iMachineNumber, idwYear, idwMonth, idwDay, idwHour, idwMinute, idwSecond))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "Successfully set the time");
+                logHandler.PMLog(lblOutputInfo, "Successfully set the time");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
@@ -6128,29 +6152,29 @@ namespace TimeATT
 
         #region wav
 
-        public int sta_btnPlayWavByIndex(ListBox lbLog, ComboBox cbWavIndex)
+        public int sta_btnPlayWavByIndex(ListBox lblOutputInfo, ComboBox cbWavIndex)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (cbWavIndex.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "Position(Wav Index) cannot be null!");
+                logHandler.PMLog(lblOutputInfo, "Position(Wav Index) cannot be null!");
                 return -1023;
             }
 
             int iIndex = Convert.ToInt32(cbWavIndex.Text.Trim());
             if (axCZKEM1.PlayVoiceByIndex(iIndex))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "PlayWavByIndex " + iIndex.ToString());
+                logHandler.PMLog(lblOutputInfo, "PlayWavByIndex " + iIndex.ToString());
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
@@ -6160,11 +6184,11 @@ namespace TimeATT
 
         #region control
 
-        public int sta_btnRestartDevice(ListBox lbLog)
+        public int sta_btnRestartDevice(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*S'mund të restartoj pajisjen! Duhet të lidheni më parë");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -6172,35 +6196,35 @@ namespace TimeATT
 
             if (axCZKEM1.RestartDevice(iMachineNumber))
             {
-                ZgjidhuMePajisjen();
-                lbLog.Items.Add(DateTime.Now + ": " + "Pajisja do të rindizet pas pak çastesh.");
+                sta_DisConnect();
+                logHandler.PMLog(lblOutputInfo, "The device will restart");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Kërkesa dështoi,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_btnPowerOffDevice(ListBox lbLog)
+        public int sta_btnPowerOffDevice(ListBox lblOutputInfo)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*S'mund të fik pajisjen! Duhet të lidheni më parë");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (axCZKEM1.PowerOffDevice(iMachineNumber))
             {
-                ZgjidhuMePajisjen();
-                lbLog.Items.Add(DateTime.Now + ": " + "Pajisja u fik.");
+                sta_DisConnect();
+                logHandler.PMLog(lblOutputInfo, "Power off device");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Kërkesa dështoi,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
@@ -6209,11 +6233,11 @@ namespace TimeATT
         #endregion
 
         #region update
-        public int sta_btnUpdateFirmware(ListBox lbLog, TextBox txtFirmwareFile)
+        public int sta_btnUpdateFirmware(ListBox lblOutputInfo, TextBox txtFirmwareFile)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
@@ -6221,12 +6245,12 @@ namespace TimeATT
             string sFirmwareFile = txtFirmwareFile.Text.Trim();
             if (axCZKEM1.UpdateFirmware(sFirmwareFile))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "UpdateFirmware,Name=" + sFirmwareFile);
+                logHandler.PMLog(lblOutputInfo, "UpdateFirmware,Name=" + sFirmwareFile);
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
@@ -6235,17 +6259,17 @@ namespace TimeATT
 
         #region R/W file
 
-        public int sta_btnSendFile(ListBox lbLog, TextBox txtSendFileName)
+        public int sta_btnSendFile(ListBox lblOutputInfo, TextBox txtSendFileName)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtSendFileName.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input the FileName  first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input the FileName  first!");
                 return -1023;
             }
 
@@ -6255,28 +6279,28 @@ namespace TimeATT
             if (axCZKEM1.SendFile(iMachineNumber, sFileName))
             {
                 axCZKEM1.RefreshData(iMachineNumber);//the data in the device should be refreshed
-                lbLog.Items.Add(DateTime.Now + ": " + "SendFile " + sFileName + " To the Device! ");
+                logHandler.PMLog(lblOutputInfo, "SendFile " + sFileName + " To the Device! ");
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;
         }
 
-        public int sta_btnReadFile(ListBox lbLog, TextBox txtReadFileName, TextBox txtFilePath)
+        public int sta_btnReadFile(ListBox lblOutputInfo, TextBox txtReadFileName, TextBox txtFilePath)
         {
             if (GetConnectState() == false)
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please connect first!");
+                logHandler.PMLog(lblOutputInfo, "*Lidhuni si fillim!");
                 return -1024;
             }
 
             if (txtFilePath.Text.Trim() == "" || txtReadFileName.Text.Trim() == "")
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "*Please input the FileName and FilePath first!");
+                logHandler.PMLog(lblOutputInfo, "*Please input the FileName and FilePath first!");
                 return -1023;
             }
 
@@ -6286,12 +6310,12 @@ namespace TimeATT
 
             if (axCZKEM1.ReadFile(iMachineNumber, sFileName, sFilePath))
             {
-                lbLog.Items.Add(DateTime.Now + ": " + "ReadFile " + sFileName + " To " + sFilePath);
+                logHandler.PMLog(lblOutputInfo, "ReadFile " + sFileName + " To " + sFilePath);
             }
             else
             {
                 axCZKEM1.GetLastError(ref idwErrorCode);
-                lbLog.Items.Add(DateTime.Now + ": " + "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
+                logHandler.PMLog(lblOutputInfo, "*Operation failed,ErrorCode=" + idwErrorCode.ToString());
             }
 
             return 1;

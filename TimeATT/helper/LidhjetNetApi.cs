@@ -19,9 +19,9 @@ namespace TimeATT
         public httpVerb httpMethod { get; set; }
 
 
-        public int lidhuApi(ListBox lbLog, string host, string user, string pass)
+        public int lidhuApi(ListBox lbPMLog, string host, string user, string pass)
         {
-            lbLog.Items.Add(DateTime.Now + ": " + "Login Api");
+            lbPMLog.Items.Add(DateTime.Now + ": " + "Login Api");
             return 1;
         }
 
